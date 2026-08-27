@@ -1,0 +1,9 @@
+[package]
+name = "owly"
+version = "0.1.0"
+edition = "2024"
+description = "A linter for open-knowledge LLM wikis."
+license = "MIT"
+repository = "https://github.com/edge-m/owly"
+
+[dependencies]
