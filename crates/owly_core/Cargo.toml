@@ -1,0 +1,12 @@
+[package]
+name = "owly_core"
+version = "0.1.0"
+edition = "2024"
+description = "Core library for validating structured Markdown wikis"
+
+[dependencies]
+chrono = { workspace = true }
+indexmap = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+walkdir = { workspace = true }
