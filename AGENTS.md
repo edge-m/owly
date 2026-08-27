@@ -24,6 +24,7 @@ Use the Makefile targets from the repository root:
 make format
 make lint
 make test
+make check-license
 make pre-commit
 make check
 make build

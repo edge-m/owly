@@ -3,6 +3,7 @@ name = "owly_core"
 version = "0.1.0"
 edition = "2024"
 description = "Core library for validating structured Markdown wikis"
+license = "MIT"
 
 [dependencies]
 chrono = { workspace = true }

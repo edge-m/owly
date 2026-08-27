@@ -1,4 +1,4 @@
-.PHONY: all help run build check test lint format format-check pre-commit clean dev-install
+.PHONY: all help run build check test lint format format-check check-license pre-commit clean dev-install
 
 CARGO ?= cargo
 
@@ -13,7 +13,8 @@ help:
 	@echo "  make lint              Run clippy with warnings denied"
 	@echo "  make format            Format the source code"
 	@echo "  make format-check      Check formatting without changing files"
-	@echo "  make pre-commit        Run formatting, lint, and test checks"
+	@echo "  make check-license     Check dependency licenses"
+	@echo "  make pre-commit        Run formatting, lint, test, and license checks"
 	@echo "  make clean             Remove build artifacts"
 	@echo "  make dev-install       Install the current owly binary"
 
@@ -38,7 +39,10 @@ format:
 format-check:
 	$(CARGO) fmt --all -- --check
 
-pre-commit: format-check lint test
+check-license:
+	cargo-deny check licenses
+
+pre-commit: format-check lint test check-license
 
 clean:
 	$(CARGO) clean
