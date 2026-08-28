@@ -35,8 +35,5 @@ files without explicit permission.
 
 ## Documentation synchronization
 
-`README.md` is the primary project README. Keep every language version under
-`docs/i18n/` synchronized with it when changing project identity, usage,
-commands, configuration examples, development instructions, or other user-
-facing information. Update the relevant translations in the same change, and
-add a note when a translation is intentionally incomplete.
+`README.md` and `skills/owly/**/*.md` must be kept in sync. Keep every language version under
+`docs/i18n/` synchronized with it.
