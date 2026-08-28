@@ -5,13 +5,13 @@ use clap::Args as ClapArgs;
 
 const SKILL_NAME: &str = "owly";
 const SKILLS: &[(&str, &str)] = &[
-    ("SKILL.md", include_str!("../../skills/owly/SKILL.md")),
-    ("using-wiki/SKILL.md", include_str!("../../skills/owly/using-wiki/SKILL.md")),
-    ("wiki-config/SKILL.md", include_str!("../../skills/owly/wiki-config/SKILL.md")),
-    ("wiki-overview/SKILL.md", include_str!("../../skills/owly/wiki-overview/SKILL.md")),
-    ("wiki-ingest/SKILL.md", include_str!("../../skills/owly/wiki-ingest/SKILL.md")),
-    ("wiki-maintenance/SKILL.md", include_str!("../../skills/owly/wiki-maintenance/SKILL.md")),
-    ("wiki-search/SKILL.md", include_str!("../../skills/owly/wiki-search/SKILL.md")),
+    ("SKILL.md", include_str!("../../docs/i18n/en/skills/owly/SKILL.md")),
+    ("using-wiki/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/using-wiki/SKILL.md")),
+    ("wiki-config/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-config/SKILL.md")),
+    ("wiki-overview/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-overview/SKILL.md")),
+    ("wiki-ingest/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-ingest/SKILL.md")),
+    ("wiki-maintenance/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-maintenance/SKILL.md")),
+    ("wiki-search/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-search/SKILL.md")),
 ];
 
 #[derive(Debug, ClapArgs)]

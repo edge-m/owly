@@ -35,5 +35,5 @@ files without explicit permission.
 
 ## Documentation synchronization
 
-`README.md` and `skills/owly/**/*.md` must be kept in sync. Keep every language version under
+`README.md` and `docs/i18n/en/skills/owly/**/*.md` must be kept in sync. Keep every language version under
 `docs/i18n/` synchronized with it.

@@ -1,6 +1,6 @@
 # Owly
 
-![Owly logo](../img/wide.webp)
+![Owly logo](../../img/wide.webp)
 
 Owlyは、構造化されたMarkdown Wiki向けの設定駆動型リンターです。
 
@@ -21,4 +21,4 @@ YAML frontmatter、文書種別、必須フィールド、フィールド型、�
 OwlyはRustで実装され、スクリプトやCI向けに安定した終了コードを提供します。
 現在のバージョンは`0.1.0`で、MITライセンスです。
 
-開発コマンドとリポジトリの規約は[AGENTS.md](../../AGENTS.md)を参照してください。
+開発コマンドとリポジトリの規約は[AGENTS.md](../../../AGENTS.md)を参照してください。
