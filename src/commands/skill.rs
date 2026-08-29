@@ -5,7 +5,6 @@ use clap::Args as ClapArgs;
 
 const SKILL_NAME: &str = "owly";
 const SKILLS: &[(&str, &str)] = &[
-    ("SKILL.md", include_str!("../../docs/i18n/en/skills/owly/SKILL.md")),
     ("using-wiki/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/using-wiki/SKILL.md")),
     ("wiki-config/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-config/SKILL.md")),
     ("wiki-overview/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-overview/SKILL.md")),

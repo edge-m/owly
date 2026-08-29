@@ -320,14 +320,12 @@ fn skill_command_writes_skill_file() {
         .expect("owly should run");
 
     assert!(output.status.success());
-    let skill_path = root.join("owly/SKILL.md");
-    let skill = fs::read_to_string(&skill_path).expect("skill should be written");
-    assert!(skill.contains("# Owly Wiki Skills"));
     assert!(root.join("owly/using-wiki/SKILL.md").is_file());
     assert!(root.join("owly/wiki-overview/SKILL.md").is_file());
     assert!(root.join("owly/wiki-config/SKILL.md").is_file());
     assert!(root.join("owly/wiki-maintenance/SKILL.md").is_file());
     assert!(root.join("owly/wiki-search/SKILL.md").is_file());
+    assert!(!root.join("owly/SKILL.md").exists());
     fs::remove_dir_all(root).expect("fixture should be removed");
 }
 
@@ -560,7 +558,6 @@ fn generated_skills_are_english_and_contain_no_todos() {
         .expect("skill should run");
     assert!(output.status.success());
     for path in [
-        "owly/SKILL.md",
         "owly/using-wiki/SKILL.md",
         "owly/wiki-config/SKILL.md",
         "owly/wiki-overview/SKILL.md",
@@ -571,7 +568,7 @@ fn generated_skills_are_english_and_contain_no_todos() {
         let content = fs::read_to_string(root.join(path)).expect("skill file should be readable");
         assert!(!content.contains("TODO"), "{path} should not contain TODO");
         assert!(!content.contains("です"), "{path} should be English");
-        assert!(content.contains("Workflow") || path == "owly/SKILL.md");
+        assert!(content.contains("Workflow"));
         assert!(content.starts_with("---\nname: "), "{path} should have Agent Skills frontmatter");
     }
     fs::remove_dir_all(root).expect("fixture should be removed");
