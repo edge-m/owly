@@ -1,0 +1,9 @@
+[package]
+name = "owly_cache"
+version = "0.1.0"
+edition = "2024"
+description = "SQLite cache index for Owly Markdown wikis"
+license = "MIT"
+
+[dependencies]
+rusqlite = { workspace = true }
