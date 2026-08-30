@@ -6,4 +6,5 @@ description = "SQLite cache index for Owly Markdown wikis"
 license = "MIT"
 
 [dependencies]
+owly_types = { workspace = true }
 rusqlite = { workspace = true }

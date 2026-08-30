@@ -1,11 +1,13 @@
 [workspace]
-members = ["crates/owly_cache", "crates/owly_core"]
+members = ["crates/owly_cache", "crates/owly_core", "crates/owly_source", "crates/owly_types"]
 resolver = "2"
 
 [workspace.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
 owly_core = { path = "crates/owly_core" }
+owly_types = { path = "crates/owly_types" }
+owly_source = { path = "crates/owly_source" }
 indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

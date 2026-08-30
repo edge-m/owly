@@ -2,7 +2,9 @@ use std::path::Path;
 
 use rusqlite::{Connection, OptionalExtension, Result, Row, Transaction, params, params_from_iter, types::Value};
 
-use crate::model::{Condition, Document, FrontmatterValue, Link, Operator, SearchQuery, SourceReference, TypedValue};
+use owly_types::{FrontmatterValue, IndexedDocument, IndexedFrontmatterValue, IndexedLink, IndexedSourceReference};
+
+use crate::query::{Condition, Operator, SearchQuery};
 
 /// Connection and CRUD operations for the derived cache index.
 pub struct CacheDb {
@@ -35,7 +37,7 @@ impl CacheDb {
         crate::schema::initialize(&self.connection)
     }
 
-    pub fn upsert_document(&self, document: &Document) -> Result<()> {
+    pub fn upsert_document(&self, document: &IndexedDocument) -> Result<()> {
         self.connection.execute(
             "INSERT INTO documents(path, content_hash, frontmatter_hash, links_hash)
              VALUES (?1, ?2, ?3, ?4)
@@ -48,7 +50,7 @@ impl CacheDb {
         Ok(())
     }
 
-    pub fn document(&self, path: &str) -> Result<Option<Document>> {
+    pub fn document(&self, path: &str) -> Result<Option<IndexedDocument>> {
         self.connection
             .query_row(
                 "SELECT path, content_hash, frontmatter_hash, links_hash FROM documents WHERE path = ?1",
@@ -63,7 +65,8 @@ impl CacheDb {
     }
 
     pub fn replace_document_index(
-        &mut self, document: &Document, values: &[FrontmatterValue], links: &[Link], sources: &[SourceReference],
+        &mut self, document: &IndexedDocument, values: &[IndexedFrontmatterValue], links: &[IndexedLink],
+        sources: &[IndexedSourceReference],
     ) -> Result<()> {
         let transaction = self.connection.transaction()?;
         upsert_document_in(&transaction, document)?;
@@ -78,12 +81,12 @@ impl CacheDb {
                 params![
                     value.document_path,
                     value.field_path,
-                    value.value_type,
-                    value.value_text,
-                    value.value_number,
-                    value.value_boolean.map(i64::from),
-                    value.value_date,
-                    value.value_datetime,
+                    sql_value_type(&value.value),
+                    sql_value_text(&value.value),
+                    sql_value_number(&value.value),
+                    sql_value_boolean(&value.value),
+                    sql_value_date(&value.value),
+                    sql_value_datetime(&value.value),
                     value.ordinal,
                 ],
             )?;
@@ -111,7 +114,7 @@ impl CacheDb {
         transaction.commit()
     }
 
-    pub fn frontmatter_values(&self, path: &str) -> Result<Vec<FrontmatterValue>> {
+    pub fn frontmatter_values(&self, path: &str) -> Result<Vec<IndexedFrontmatterValue>> {
         let mut statement = self.connection.prepare(
             "SELECT document_path, field_path, value_type, value_text, value_number, value_boolean,
                     value_date, value_datetime, ordinal
@@ -120,7 +123,7 @@ impl CacheDb {
         statement.query_map([path], frontmatter_value_from_row)?.collect()
     }
 
-    pub fn find_documents(&self, field_path: &str, value: &TypedValue) -> Result<Vec<String>> {
+    pub fn find_documents(&self, field_path: &str, value: &FrontmatterValue) -> Result<Vec<String>> {
         self.search(&SearchQuery::new().and(field_path, Operator::Eq, value.clone()))
     }
 
@@ -157,7 +160,7 @@ impl CacheDb {
         statement.query_map(params_from_iter(values.iter()), |row| row.get(0))?.collect()
     }
 
-    pub fn links(&self, source_path: &str) -> Result<Vec<Link>> {
+    pub fn links(&self, source_path: &str) -> Result<Vec<IndexedLink>> {
         let mut statement = self.connection.prepare(
             "SELECT source_path, raw_target, resolved_target, target_kind, occurrence_count
              FROM links WHERE source_path = ?1 ORDER BY resolved_target, raw_target, target_kind",
@@ -165,7 +168,7 @@ impl CacheDb {
         statement.query_map([source_path], link_from_row)?.collect()
     }
 
-    pub fn incoming_links(&self, target: &str) -> Result<Vec<Link>> {
+    pub fn incoming_links(&self, target: &str) -> Result<Vec<IndexedLink>> {
         let mut statement = self.connection.prepare(
             "SELECT source_path, raw_target, resolved_target, target_kind, occurrence_count
              FROM links WHERE resolved_target = ?1 ORDER BY source_path, raw_target, target_kind",
@@ -173,7 +176,7 @@ impl CacheDb {
         statement.query_map([target], link_from_row)?.collect()
     }
 
-    pub fn source_references(&self, document_path: &str) -> Result<Vec<SourceReference>> {
+    pub fn source_references(&self, document_path: &str) -> Result<Vec<IndexedSourceReference>> {
         let mut statement = self.connection.prepare(
             "SELECT document_path, ordinal, source_path, sha256, origin
              FROM source_references WHERE document_path = ?1 ORDER BY ordinal",
@@ -193,16 +196,16 @@ struct CompiledCondition {
 impl CompiledCondition {
     fn new(condition: &Condition) -> Result<Self> {
         let (value_type, column, value) = match &condition.value {
-            TypedValue::Text(value) => ("string", "value_text", Some(Value::Text(value.clone()))),
-            TypedValue::Number(value) => ("number", "value_number", Some(Value::Real(*value))),
-            TypedValue::Boolean(value) => ("boolean", "value_boolean", Some(Value::Integer(i64::from(*value)))),
-            TypedValue::Date(value) => ("date", "value_date", Some(Value::Text(value.clone()))),
-            TypedValue::Datetime(value) => ("datetime", "value_datetime", Some(Value::Text(value.clone()))),
-            TypedValue::Null => ("null", "value_text", None),
+            FrontmatterValue::Text(value) => ("string", "value_text", Some(Value::Text(value.clone()))),
+            FrontmatterValue::Number(value) => ("number", "value_number", Some(Value::Real(*value))),
+            FrontmatterValue::Boolean(value) => ("boolean", "value_boolean", Some(Value::Integer(i64::from(*value)))),
+            FrontmatterValue::Date(value) => ("date", "value_date", Some(Value::Text(value.clone()))),
+            FrontmatterValue::Datetime(value) => ("datetime", "value_datetime", Some(Value::Text(value.clone()))),
+            FrontmatterValue::Null => ("null", "value_text", None),
         };
         let (operator, comparison) = match (&condition.operator, &condition.value) {
-            (Operator::Eq, TypedValue::Null) => ("IS", "NULL"),
-            (Operator::Ne, TypedValue::Null) => ("IS NOT", "NULL"),
+            (Operator::Eq, FrontmatterValue::Null) => ("IS", "NULL"),
+            (Operator::Ne, FrontmatterValue::Null) => ("IS NOT", "NULL"),
             (Operator::Eq, _) => ("=", "?"),
             (Operator::Ne, _) => ("<>", "?"),
             (Operator::Lt, _) => ("<", "?"),
@@ -210,14 +213,16 @@ impl CompiledCondition {
             (Operator::Gt, _) => (">", "?"),
             (Operator::Gte, _) => (">=", "?"),
         };
-        if matches!(condition.value, TypedValue::Null) && !matches!(condition.operator, Operator::Eq | Operator::Ne) {
+        if matches!(condition.value, FrontmatterValue::Null)
+            && !matches!(condition.operator, Operator::Eq | Operator::Ne)
+        {
             return Err(rusqlite::Error::InvalidParameterName("null only supports Eq or Ne".to_string()));
         }
         Ok(Self { value_type, column, operator, comparison, value })
     }
 }
 
-fn upsert_document_in(transaction: &Transaction<'_>, document: &Document) -> Result<()> {
+fn upsert_document_in(transaction: &Transaction<'_>, document: &IndexedDocument) -> Result<()> {
     transaction.execute(
         "INSERT INTO documents(path, content_hash, frontmatter_hash, links_hash)
          VALUES (?1, ?2, ?3, ?4)
@@ -228,8 +233,8 @@ fn upsert_document_in(transaction: &Transaction<'_>, document: &Document) -> Res
     Ok(())
 }
 
-fn document_from_row(row: &Row<'_>) -> Result<Document> {
-    Ok(Document {
+fn document_from_row(row: &Row<'_>) -> Result<IndexedDocument> {
+    Ok(IndexedDocument {
         path: row.get(0)?,
         content_hash: row.get(1)?,
         frontmatter_hash: row.get(2)?,
@@ -237,22 +242,26 @@ fn document_from_row(row: &Row<'_>) -> Result<Document> {
     })
 }
 
-fn frontmatter_value_from_row(row: &Row<'_>) -> Result<FrontmatterValue> {
-    Ok(FrontmatterValue {
-        document_path: row.get(0)?,
-        field_path: row.get(1)?,
-        value_type: row.get(2)?,
-        value_text: row.get(3)?,
-        value_number: row.get(4)?,
-        value_boolean: row.get::<_, Option<i64>>(5)?.map(|value| value != 0),
-        value_date: row.get(6)?,
-        value_datetime: row.get(7)?,
-        ordinal: row.get(8)?,
-    })
+fn frontmatter_value_from_row(row: &Row<'_>) -> Result<IndexedFrontmatterValue> {
+    let value_type: String = row.get(2)?;
+    let value = match value_type.as_str() {
+        "string" => FrontmatterValue::Text(row.get::<_, Option<String>>(3)?.unwrap_or_default()),
+        "number" => FrontmatterValue::Number(row.get::<_, Option<f64>>(4)?.unwrap_or_default()),
+        "boolean" => FrontmatterValue::Boolean(row.get::<_, Option<i64>>(5)?.unwrap_or_default() != 0),
+        "date" => FrontmatterValue::Date(row.get::<_, Option<String>>(6)?.unwrap_or_default()),
+        "datetime" => FrontmatterValue::Datetime(row.get::<_, Option<String>>(7)?.unwrap_or_default()),
+        "null" => FrontmatterValue::Null,
+        _ => {
+            return Err(rusqlite::Error::InvalidParameterName(format!(
+                "unknown frontmatter value type: {value_type}"
+            )));
+        }
+    };
+    Ok(IndexedFrontmatterValue { document_path: row.get(0)?, field_path: row.get(1)?, value, ordinal: row.get(8)? })
 }
 
-fn link_from_row(row: &Row<'_>) -> Result<Link> {
-    Ok(Link {
+fn link_from_row(row: &Row<'_>) -> Result<IndexedLink> {
+    Ok(IndexedLink {
         source_path: row.get(0)?,
         raw_target: row.get(1)?,
         resolved_target: row.get(2)?,
@@ -261,12 +270,58 @@ fn link_from_row(row: &Row<'_>) -> Result<Link> {
     })
 }
 
-fn source_reference_from_row(row: &Row<'_>) -> Result<SourceReference> {
-    Ok(SourceReference {
+fn source_reference_from_row(row: &Row<'_>) -> Result<IndexedSourceReference> {
+    Ok(IndexedSourceReference {
         document_path: row.get(0)?,
         ordinal: row.get(1)?,
         source_path: row.get(2)?,
         sha256: row.get(3)?,
         origin: row.get(4)?,
     })
+}
+
+fn sql_value_type(value: &FrontmatterValue) -> &'static str {
+    match value {
+        FrontmatterValue::Text(_) => "string",
+        FrontmatterValue::Number(_) => "number",
+        FrontmatterValue::Boolean(_) => "boolean",
+        FrontmatterValue::Date(_) => "date",
+        FrontmatterValue::Datetime(_) => "datetime",
+        FrontmatterValue::Null => "null",
+    }
+}
+
+fn sql_value_text(value: &FrontmatterValue) -> Option<&str> {
+    match value {
+        FrontmatterValue::Text(value) => Some(value),
+        _ => None,
+    }
+}
+
+fn sql_value_number(value: &FrontmatterValue) -> Option<f64> {
+    match value {
+        FrontmatterValue::Number(value) => Some(*value),
+        _ => None,
+    }
+}
+
+fn sql_value_boolean(value: &FrontmatterValue) -> Option<i64> {
+    match value {
+        FrontmatterValue::Boolean(value) => Some(i64::from(*value)),
+        _ => None,
+    }
+}
+
+fn sql_value_date(value: &FrontmatterValue) -> Option<&str> {
+    match value {
+        FrontmatterValue::Date(value) => Some(value),
+        _ => None,
+    }
+}
+
+fn sql_value_datetime(value: &FrontmatterValue) -> Option<&str> {
+    match value {
+        FrontmatterValue::Datetime(value) => Some(value),
+        _ => None,
+    }
 }

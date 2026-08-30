@@ -1,0 +1,8 @@
+[package]
+name = "owly_types"
+version = "0.1.0"
+edition = "2024"
+description = "Shared domain types for Owly wiki indexes"
+license = "MIT"
+
+[dependencies]

@@ -281,6 +281,7 @@ dependencies = [
 name = "owly_cache"
 version = "0.1.0"
 dependencies = [
+ "owly_types",
  "rusqlite",
 ]
 
@@ -294,6 +295,19 @@ dependencies = [
  "serde_yaml",
  "walkdir",
 ]
+
+[[package]]
+name = "owly_source"
+version = "0.1.0"
+dependencies = [
+ "owly_types",
+ "serde_yaml",
+ "walkdir",
+]
+
+[[package]]
+name = "owly_types"
+version = "0.1.0"
 
 [[package]]
 name = "pkg-config"

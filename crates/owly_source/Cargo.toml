@@ -1,0 +1,11 @@
+[package]
+name = "owly_source"
+version = "0.1.0"
+edition = "2024"
+description = "File discovery and Markdown loading for Owly wikis"
+license = "MIT"
+
+[dependencies]
+owly_types = { workspace = true }
+serde_yaml = { workspace = true }
+walkdir = { workspace = true }
