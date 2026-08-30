@@ -1,4 +1,6 @@
-use owly_types::{FrontmatterValue, IndexedDocument, IndexedFrontmatterValue, IndexedLink, IndexedSourceReference};
+use owly_types::{
+    DocumentIndex, FrontmatterValue, IndexedDocument, IndexedFrontmatterValue, IndexedLink, IndexedSourceReference,
+};
 
 use super::{CacheDb, Operator, SearchQuery};
 
@@ -46,6 +48,13 @@ fn initializes_schema_and_crud_is_atomic() {
     }];
 
     db.replace_document_index(&document, &values, &links, &sources).unwrap();
+    let index = DocumentIndex {
+        document: document.clone(),
+        frontmatter: values.to_vec(),
+        links: links.to_vec(),
+        sources: sources.to_vec(),
+    };
+    db.replace_index(&index).unwrap();
     assert_eq!(db.document(&document.path).unwrap(), Some(document.clone()));
     assert_eq!(db.frontmatter_values(&document.path).unwrap(), values);
     assert_eq!(db.links(&document.path).unwrap(), links);

@@ -1,6 +1,7 @@
 pub mod config;
 mod context;
 pub mod graph;
+pub mod index;
 pub mod init;
 pub mod onboard;
 pub mod overview;

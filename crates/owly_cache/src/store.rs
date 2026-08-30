@@ -2,7 +2,9 @@ use std::path::Path;
 
 use rusqlite::{Connection, OptionalExtension, Result, Row, Transaction, params, params_from_iter, types::Value};
 
-use owly_types::{FrontmatterValue, IndexedDocument, IndexedFrontmatterValue, IndexedLink, IndexedSourceReference};
+use owly_types::{
+    DocumentIndex, FrontmatterValue, IndexedDocument, IndexedFrontmatterValue, IndexedLink, IndexedSourceReference,
+};
 
 use crate::query::{Condition, Operator, SearchQuery};
 
@@ -50,6 +52,11 @@ impl CacheDb {
         Ok(())
     }
 
+    /// Replace every derived row belonging to one parsed source document.
+    pub fn replace_index(&mut self, index: &DocumentIndex) -> Result<()> {
+        self.replace_document_index(&index.document, &index.frontmatter, &index.links, &index.sources)
+    }
+
     pub fn document(&self, path: &str) -> Result<Option<IndexedDocument>> {
         self.connection
             .query_row(
@@ -62,6 +69,18 @@ impl CacheDb {
 
     pub fn delete_document(&self, path: &str) -> Result<bool> {
         Ok(self.connection.execute("DELETE FROM documents WHERE path = ?1", [path])? > 0)
+    }
+
+    /// Return all indexed document paths in deterministic order.
+    pub fn document_paths(&self) -> Result<Vec<String>> {
+        let mut statement = self.connection.prepare("SELECT path FROM documents ORDER BY path")?;
+        statement.query_map([], |row| row.get(0))?.collect()
+    }
+
+    /// Remove all derived rows so the index can be rebuilt from the source of truth.
+    pub fn clear(&self) -> Result<()> {
+        self.connection.execute("DELETE FROM documents", [])?;
+        Ok(())
     }
 
     pub fn replace_document_index(

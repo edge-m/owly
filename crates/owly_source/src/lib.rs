@@ -12,8 +12,10 @@ use serde_yaml::Value;
 use walkdir::WalkDir;
 
 mod hash;
+mod local_cache;
 
 pub use hash::sha256;
+pub use local_cache::{FileMetadata, LocalFileCache};
 
 /// An error produced while discovering or loading a source document.
 #[derive(Debug)]
@@ -43,7 +45,7 @@ impl fmt::Display for SourceError {
 
 impl std::error::Error for SourceError {}
 
-/// Discover Markdown files below `root` in deterministic path order.
+/// Discover Markdown files below `root` as normalized relative paths in deterministic order.
 pub fn discover(root: impl AsRef<Path>) -> Result<Vec<PathBuf>, SourceError> {
     let root = root.as_ref();
     if !root.is_dir() {
@@ -54,7 +56,10 @@ pub fn discover(root: impl AsRef<Path>) -> Result<Vec<PathBuf>, SourceError> {
     for entry in WalkDir::new(root) {
         let entry = entry.map_err(SourceError::Walk)?;
         if entry.file_type().is_file() && is_markdown(entry.path()) {
-            paths.push(entry.into_path());
+            let relative =
+                entry.path().strip_prefix(root).map_err(|error| SourceError::InvalidPath(error.to_string()))?;
+            let relative = normalize_relative_path(relative)?;
+            paths.push(PathBuf::from(relative));
         }
     }
     paths.sort();
@@ -81,7 +86,6 @@ pub fn load(root: impl AsRef<Path>, relative_path: impl AsRef<Path>) -> Result<D
         });
     }
 
-    let frontmatter_hash = sha256(frontmatter.as_bytes());
     let links = extract_links(body, &relative);
     let links_hash = sha256(serialize_links(&links).as_bytes());
     let mut values = flatten_frontmatter(&yaml);
@@ -92,6 +96,7 @@ pub fn load(root: impl AsRef<Path>, relative_path: impl AsRef<Path>) -> Result<D
     for source in &mut sources {
         source.document_path = relative.clone();
     }
+    let frontmatter_hash = sha256(serialize_frontmatter(&values).as_bytes());
     Ok(DocumentIndex {
         document: IndexedDocument {
             path: relative.clone(),
@@ -190,6 +195,15 @@ fn typed_value(value: &Value) -> FrontmatterValue {
         Value::String(value) => FrontmatterValue::Text(value.clone()),
         _ => FrontmatterValue::Null,
     }
+}
+
+fn serialize_frontmatter(values: &[IndexedFrontmatterValue]) -> String {
+    let mut entries = values
+        .iter()
+        .map(|value| format!("{}\0{}\0{:?}", value.field_path, value.ordinal, value.value))
+        .collect::<Vec<_>>();
+    entries.sort();
+    entries.join("\n")
 }
 
 fn is_date(value: &str) -> bool {

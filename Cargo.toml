@@ -6,6 +6,7 @@ resolver = "2"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
 owly_core = { path = "crates/owly_core" }
+owly_cache = { path = "crates/owly_cache" }
 owly_types = { path = "crates/owly_types" }
 owly_source = { path = "crates/owly_source" }
 indexmap = { version = "2", features = ["serde"] }
@@ -40,6 +41,9 @@ path = "src/main.rs"
 chrono = { workspace = true }
 clap = { workspace = true }
 owly_core = { workspace = true }
+owly_cache = { workspace = true }
+owly_source = { workspace = true }
+owly_types = { workspace = true }
 indexmap = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

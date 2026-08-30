@@ -123,6 +123,11 @@ fn overview_and_search_return_structured_results() {
         .expect("document should be written");
 
     let config = root.join("owly.yml");
+    let index = Command::new(env!("CARGO_BIN_EXE_owly"))
+        .args(["index", "--config", config.to_str().unwrap()])
+        .output()
+        .expect("index should run");
+    assert!(index.status.success());
     let overview = Command::new(env!("CARGO_BIN_EXE_owly"))
         .args(["overview", "types", "--config", config.to_str().unwrap(), "--type", "note"])
         .output()
@@ -480,6 +485,11 @@ fn search_matches_scalars_and_array_values_and_rejects_bad_queries() {
         .expect("draft should be written");
 
     let config = root.join("owly.yml");
+    let index = Command::new(env!("CARGO_BIN_EXE_owly"))
+        .args(["index", "--config", config.to_str().unwrap()])
+        .output()
+        .expect("index should run");
+    assert!(index.status.success());
     let scalar = Command::new(env!("CARGO_BIN_EXE_owly"))
         .args(["search", "--config", config.to_str().unwrap(), "--query", "status:active", "--format", "json"])
         .output()

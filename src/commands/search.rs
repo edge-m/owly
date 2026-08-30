@@ -1,10 +1,9 @@
 use std::path::PathBuf;
 
 use clap::Args as ClapArgs;
-use owly_core::document;
-use owly_core::workspace::Workspace;
+use owly_cache::CacheDb;
+use owly_types::FrontmatterValue;
 use serde::Serialize;
-use serde_yaml::Value;
 
 use super::context;
 use super::overview::Format;
@@ -32,21 +31,42 @@ struct SearchResult {
 pub fn run(args: &Args) -> Result<u8, String> {
     let config_context = context::load(args.config.as_deref())?;
     let query = Query::parse(&args.query)?;
-    let scan = Workspace::new(config_context.wiki_root().to_path_buf())
-        .with_excludes(&config_context.config().wiki_lint.exclude)
-        .scan()?;
-    let results = scan
-        .documents
-        .iter()
-        .filter_map(|document| {
-            let value = document.frontmatter.get(Value::String(query.field.clone()))?;
-            query.matches(value).then(|| SearchResult {
-                page_id: document.page_id(),
-                path: document.relative_file_path_from_wiki_root.clone(),
-                r#type: document::string_value(&document.frontmatter, "type"),
+    let database = config_context.wiki_root().join(".owly/index.sqlite");
+    if !database.is_file() {
+        return Err(format!(
+            "SQLite index not found: run owly index --config {} first",
+            args.config.as_deref().unwrap_or_else(|| std::path::Path::new("owly.yml")).display()
+        ));
+    }
+    let db =
+        CacheDb::open(&database).map_err(|error| format!("cannot open database {}: {error}", database.display()))?;
+    let paths =
+        db.find_documents(&query.field, &query.value).map_err(|error| format!("cannot search database: {error}"))?;
+    let results = paths
+        .into_iter()
+        .map(|path| {
+            let values = db.frontmatter_values(&path).unwrap_or_default();
+            let value = values
+                .iter()
+                .find(|value| value.field_path == query.field)
+                .map(|value| display_value(&value.value))
+                .unwrap_or_else(|| query.display_value());
+            let document_type = values.iter().find_map(|value| {
+                if value.field_path != "type" {
+                    return None;
+                }
+                match &value.value {
+                    FrontmatterValue::Text(value) => Some(value.clone()),
+                    _ => None,
+                }
+            });
+            SearchResult {
+                page_id: path.strip_suffix(".md").unwrap_or(&path).to_string(),
+                path,
+                r#type: document_type,
                 matched_field: query.field.clone(),
-                value: display_value(value),
-            })
+                value,
+            }
         })
         .collect::<Vec<_>>();
 
@@ -63,7 +83,8 @@ pub fn run(args: &Args) -> Result<u8, String> {
 
 struct Query {
     field: String,
-    value: String,
+    value: FrontmatterValue,
+    raw_value: String,
 }
 
 impl Query {
@@ -72,23 +93,37 @@ impl Query {
         if field.is_empty() || value.is_empty() {
             return Err("query must use the form field:value".to_string());
         }
-        Ok(Self { field: field.to_string(), value: value.to_string() })
+        Ok(Self { field: field.to_string(), value: parse_value(value), raw_value: value.to_string() })
     }
 
-    fn matches(&self, value: &Value) -> bool {
-        match value {
-            Value::String(candidate) => candidate == &self.value,
-            Value::Bool(candidate) => candidate.to_string() == self.value,
-            Value::Number(candidate) => candidate.to_string() == self.value,
-            Value::Sequence(values) => values.iter().any(|value| self.matches(value)),
-            _ => false,
-        }
+    fn display_value(&self) -> String {
+        self.raw_value.clone()
     }
 }
 
-fn display_value(value: &Value) -> String {
+fn parse_value(value: &str) -> FrontmatterValue {
+    if value == "true" {
+        FrontmatterValue::Boolean(true)
+    } else if value == "false" {
+        FrontmatterValue::Boolean(false)
+    } else if let Ok(value) = value.parse::<f64>() {
+        FrontmatterValue::Number(value)
+    } else if value.len() == 10 && value.as_bytes().get(4) == Some(&b'-') && value.as_bytes().get(7) == Some(&b'-') {
+        FrontmatterValue::Date(value.to_string())
+    } else if value.len() > 10 && matches!(value.as_bytes().get(10), Some(b'T' | b' ')) {
+        FrontmatterValue::Datetime(value.to_string())
+    } else {
+        FrontmatterValue::Text(value.to_string())
+    }
+}
+
+fn display_value(value: &FrontmatterValue) -> String {
     match value {
-        Value::String(value) => value.clone(),
-        _ => serde_json::to_string(value).unwrap_or_else(|_| "<unserializable>".to_string()),
+        FrontmatterValue::Text(value) | FrontmatterValue::Date(value) | FrontmatterValue::Datetime(value) => {
+            value.clone()
+        }
+        FrontmatterValue::Number(value) => value.to_string(),
+        FrontmatterValue::Boolean(value) => value.to_string(),
+        FrontmatterValue::Null => "null".to_string(),
     }
 }

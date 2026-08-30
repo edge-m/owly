@@ -1,0 +1,188 @@
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use clap::{Args as ClapArgs, ValueEnum};
+use owly_cache::CacheDb;
+use owly_source::LocalFileCache;
+use serde::Serialize;
+
+use super::context;
+
+const DEFAULT_DATABASE: &str = ".owly/index.sqlite";
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum Format {
+    Human,
+    Json,
+}
+
+#[derive(Debug, ClapArgs)]
+pub struct Args {
+    #[arg(long, help = "YAML configuration file")]
+    pub config: Option<PathBuf>,
+    #[arg(long, help = "SQLite index path, relative to the wiki root")]
+    pub database: Option<PathBuf>,
+    #[arg(long, help = "Rebuild the complete index")]
+    pub force: bool,
+    #[arg(long, value_enum, default_value_t = Format::Human)]
+    pub format: Format,
+}
+
+#[derive(Debug, Serialize)]
+struct Summary {
+    database: String,
+    rebuilt: bool,
+    indexed: usize,
+    reused: usize,
+    removed: usize,
+    warnings: Vec<String>,
+}
+
+pub fn run(args: &Args) -> Result<u8, String> {
+    let context = context::load(args.config.as_deref())?;
+    let root = context.wiki_root();
+    if !root.is_dir() {
+        return Err(format!("wiki path is not a directory: {}", root.display()));
+    }
+
+    let database = args.database.as_deref().map_or_else(|| root.join(DEFAULT_DATABASE), |path| root.join(path));
+    if let Some(parent) = database.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("cannot create database directory {}: {error}", parent.display()))?;
+    }
+    let database_existed = database.is_file();
+    let root_cache_path = root.join(LocalFileCache::FILE_NAME);
+    let mut root_cache = LocalFileCache::load(&root_cache_path);
+    let cached_database = root_cache.database;
+    let database_changed = database_existed
+        && root_cache
+            .update_database(&database)
+            .map_err(|error| format!("cannot inspect database {}: {error}", database.display()))?;
+    let rebuild = args.force || !database_existed || cached_database.is_none() || database_changed;
+
+    let discovered = owly_source::discover(root).map_err(|error| error.to_string())?;
+    let excluded = context.config().wiki_lint.exclude.as_slice();
+    let paths = discovered
+        .into_iter()
+        .filter(|path| {
+            let path_string = path.to_string_lossy().replace('\\', "/");
+            !excluded.iter().any(|pattern| owly_core::config::matches_glob(pattern, &path_string))
+        })
+        .collect::<Vec<_>>();
+    let grouped = group_by_directory(root, &paths);
+    let warnings = grouped
+        .iter()
+        .filter(|(_, files)| files.len() > 250)
+        .map(|(directory, files)| {
+            format!("directory {} contains {} Markdown files; consider splitting it", directory.display(), files.len())
+        })
+        .collect::<Vec<_>>();
+
+    let mut db =
+        CacheDb::open(&database).map_err(|error| format!("cannot open database {}: {error}", database.display()))?;
+    if rebuild {
+        db.clear().map_err(|error| format!("cannot clear database: {error}"))?;
+    }
+
+    let current_paths = paths.iter().map(|path| path.to_string_lossy().replace('\\', "/")).collect::<BTreeSet<_>>();
+    let mut indexed = 0;
+    let mut reused = 0;
+    for (directory, files) in &grouped {
+        let cache_path = directory.join(LocalFileCache::FILE_NAME);
+        let mut cache = LocalFileCache::load(&cache_path);
+        for (relative, path) in files {
+            let key = relative.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+            let changed_by_metadata = cache
+                .update_file_with_key(key, path)
+                .map_err(|error| format!("cannot inspect source {}: {error}", path.display()))?;
+            let changed = rebuild || changed_by_metadata;
+            if changed {
+                let index = owly_source::load(root, relative).map_err(|error| error.to_string())?;
+                db.replace_index(&index)
+                    .map_err(|error| format!("cannot write {} to index: {error}", relative.display()))?;
+                indexed += 1;
+            } else {
+                reused += 1;
+            }
+        }
+        cache.files.retain(|key, _| {
+            files.iter().any(|(path, _)| path.file_name().and_then(|name| name.to_str()) == Some(key))
+        });
+        cache
+            .save_atomic(&cache_path)
+            .map_err(|error| format!("cannot write cache {}: {error}", cache_path.display()))?;
+    }
+
+    let mut removed = 0;
+    for path in db.document_paths().map_err(|error| format!("cannot read indexed paths: {error}"))? {
+        if !current_paths.contains(&path) {
+            removed +=
+                usize::from(db.delete_document(&path).map_err(|error| format!("cannot remove {path}: {error}"))?);
+        }
+    }
+    let mut root_cache = LocalFileCache::load(&root_cache_path);
+    root_cache
+        .update_database(&database)
+        .map_err(|error| format!("cannot inspect database {}: {error}", database.display()))?;
+    root_cache
+        .save_atomic(&root_cache_path)
+        .map_err(|error| format!("cannot write cache {}: {error}", root_cache_path.display()))?;
+
+    let summary =
+        Summary { database: database.display().to_string(), rebuilt: rebuild, indexed, reused, removed, warnings };
+    match args.format {
+        Format::Human => {
+            println!("{}", if summary.rebuilt { "rebuilt index" } else { "updated index" });
+            println!("indexed: {}, reused: {}, removed: {}", summary.indexed, summary.reused, summary.removed);
+            for warning in &summary.warnings {
+                eprintln!("warning: {warning}");
+            }
+        }
+        Format::Json => println!("{}", serde_json::to_string_pretty(&summary).map_err(|error| error.to_string())?),
+    }
+    Ok(0)
+}
+
+fn group_by_directory(root: &Path, paths: &[PathBuf]) -> BTreeMap<PathBuf, Vec<(PathBuf, PathBuf)>> {
+    let mut grouped = BTreeMap::new();
+    for relative in paths {
+        let directory = relative.parent().map_or_else(|| root.to_path_buf(), |parent| root.join(parent));
+        grouped.entry(directory).or_insert_with(Vec::new).push((relative.clone(), root.join(relative)));
+    }
+    grouped
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use owly_cache::CacheDb;
+
+    use super::{Args, Format, run};
+
+    #[test]
+    fn builds_and_reuses_an_index() {
+        let root = std::env::temp_dir().join(format!("owly-index-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let wiki = root.join("wiki");
+        fs::create_dir_all(&wiki).unwrap();
+        fs::write(
+            root.join("owly.yml"),
+            "wiki_root: wiki\nwiki_lint:\n  exclude: []\nsource_tracking:\n  enabled: false\n",
+        )
+        .unwrap();
+        fs::write(wiki.join("note.md"), "---\ntags: [rust]\n---\n").unwrap();
+        let args = Args { config: Some(root.join("owly.yml")), database: None, force: false, format: Format::Json };
+
+        run(&args).unwrap();
+        let database = wiki.join(".owly/index.sqlite");
+        let db = CacheDb::open(&database).unwrap();
+        assert_eq!(db.document_paths().unwrap(), ["note.md".to_string()]);
+        drop(db);
+        run(&args).unwrap();
+        assert!(wiki.join(".owly-cache.json").is_file());
+        assert!(wiki.join(".owly/index.sqlite").is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+}

@@ -270,7 +270,10 @@ dependencies = [
  "chrono",
  "clap",
  "indexmap",
+ "owly_cache",
  "owly_core",
+ "owly_source",
+ "owly_types",
  "semver",
  "serde",
  "serde_json",
@@ -301,6 +304,8 @@ name = "owly_source"
 version = "0.1.0"
 dependencies = [
  "owly_types",
+ "serde",
+ "serde_json",
  "serde_yaml",
  "walkdir",
 ]
