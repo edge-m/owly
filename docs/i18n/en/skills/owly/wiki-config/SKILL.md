@@ -54,6 +54,7 @@ Before writing anything, present a compact summary containing:
 - directory tree;
 - document types and their descriptions;
 - required fields shared by all documents;
+- the required graph entry page, `<wiki-root>/entrance.md`;
 - type-specific fields, optional fields, nested shapes, and allowed values;
 - `wiki_lint` and `config_lint` settings.
 

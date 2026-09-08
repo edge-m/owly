@@ -4,6 +4,9 @@ use serde::Serialize;
 
 use crate::{link_resolver::OutgoingTarget, workspace::ScanResult};
 
+pub const ENTRANCE_PAGE_ID: &str = "entrance";
+pub const ENTRANCE_FILE_NAME: &str = "entrance.md";
+
 #[derive(Debug, Clone, Serialize)]
 pub struct GraphNode {
     pub id: String,
@@ -89,7 +92,10 @@ impl WikiGraph {
         }
 
         let mut reachable = HashSet::new();
-        let mut queue = VecDeque::from(["index"]);
+        let mut queue = VecDeque::new();
+        if page_ids.contains(ENTRANCE_PAGE_ID) {
+            queue.push_back(ENTRANCE_PAGE_ID);
+        }
         while let Some(id) = queue.pop_front() {
             if !reachable.insert(id) {
                 continue;
@@ -101,7 +107,7 @@ impl WikiGraph {
 
         let mut orphan_pages = nodes
             .iter()
-            .filter(|node| !incoming.contains_key(node.id.as_str()) && node.id != "index")
+            .filter(|node| !incoming.contains_key(node.id.as_str()) && node.id != ENTRANCE_PAGE_ID)
             .map(|node| node.id.clone())
             .collect::<Vec<_>>();
         let mut unreachable_pages = nodes
@@ -123,10 +129,10 @@ mod tests {
 
     #[test]
     fn builds_edges_and_reachability() {
-        let index = parse("index.md".into(), "---\n{}\n---\n[Note](note.md)\n").unwrap();
+        let entrance = parse("entrance.md".into(), "---\n{}\n---\n[Note](note.md)\n").unwrap();
         let note = parse("note.md".into(), "---\n{}\n---\n[Missing](missing.md)\n").unwrap();
         let orphan = parse("orphan.md".into(), "---\n{}\n---\n").unwrap();
-        let graph = WikiGraph::from_scan(&ScanResult { documents: vec![index, note, orphan], diagnostics: vec![] });
+        let graph = WikiGraph::from_scan(&ScanResult { documents: vec![entrance, note, orphan], diagnostics: vec![] });
 
         assert_eq!(graph.edges.len(), 1);
         assert_eq!(graph.broken_references[0].target, "missing");

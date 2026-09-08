@@ -2,7 +2,6 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexedDocument {
     pub path: String,
-    pub content_hash: String,
     pub frontmatter_hash: String,
     pub links_hash: String,
 }

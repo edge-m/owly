@@ -303,6 +303,7 @@ dependencies = [
 name = "owly_source"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "owly_types",
  "serde",
  "serde_json",

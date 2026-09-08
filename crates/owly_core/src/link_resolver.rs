@@ -20,6 +20,7 @@ pub struct OutgoingLink {
 pub enum OutgoingTarget {
     Page { id: String },
     Resource { path: String },
+    ExternalGraph { path: String },
     External { url: String },
 }
 
@@ -50,16 +51,24 @@ fn classify_target(raw_target: &str, source_path: &str) -> Option<OutgoingTarget
     if path.is_empty() {
         return None;
     }
-    let path = normalize_internal_path(source_path, path);
+    let normalized = normalize_internal_path(source_path, path);
     if Path::new(&path).extension().and_then(|extension| extension.to_str()) == Some("md") {
-        let id = path.strip_suffix(".md").unwrap_or(&path).to_string();
+        if normalized.escaped_root {
+            return Some(OutgoingTarget::ExternalGraph { path: normalized.path });
+        }
+        let id = normalized.path.strip_suffix(".md").unwrap_or(&normalized.path).to_string();
         Some(OutgoingTarget::Page { id })
     } else {
-        Some(OutgoingTarget::Resource { path })
+        Some(OutgoingTarget::Resource { path: normalized.path })
     }
 }
 
-fn normalize_internal_path(source_path: &str, target: &str) -> String {
+struct NormalizedPath {
+    path: String,
+    escaped_root: bool,
+}
+
+fn normalize_internal_path(source_path: &str, target: &str) -> NormalizedPath {
     let source_parent = Path::new(source_path).parent().unwrap_or_else(|| Path::new(""));
     let combined = if target.starts_with('/') {
         target.to_string()
@@ -67,17 +76,21 @@ fn normalize_internal_path(source_path: &str, target: &str) -> String {
         source_parent.join(target).to_string_lossy().into_owned()
     };
     let mut components = Vec::new();
+    let mut escaped_components = 0;
     let combined = combined.replace('\\', "/");
     for component in combined.split('/') {
         match component {
             "" | "." => {}
             ".." => {
-                components.pop();
+                if components.pop().is_none() {
+                    escaped_components += 1;
+                }
             }
             component => components.push(component),
         }
     }
-    components.join("/")
+    let path = format!("{}{}", "../".repeat(escaped_components), components.join("/"));
+    NormalizedPath { path, escaped_root: escaped_components > 0 }
 }
 
 #[cfg(test)]
@@ -113,5 +126,23 @@ mod tests {
         assert!(
             matches!(resolved.links[2].target, OutgoingTarget::External { ref url } if url == "https://example.com")
         );
+    }
+
+    #[test]
+    fn classifies_root_escaping_markdown_links_as_external_graphs() {
+        let raw_links = RawLinks {
+            links: vec![RawLink {
+                label: "other graph".to_string(),
+                target: "../../other/entrance.md".to_string(),
+                line: 1,
+                column: 1,
+            }],
+        };
+
+        let resolved = resolve(&raw_links, "docs/guide.md");
+        assert!(matches!(
+            resolved.links[0].target,
+            OutgoingTarget::ExternalGraph { ref path } if path == "../other/entrance.md"
+        ));
     }
 }

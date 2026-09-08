@@ -7,10 +7,25 @@ const SKILL_NAME: &str = "owly";
 const SKILLS: &[(&str, &str)] = &[
     ("using-wiki/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/using-wiki/SKILL.md")),
     ("wiki-config/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-config/SKILL.md")),
-    ("wiki-overview/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-overview/SKILL.md")),
     ("wiki-ingest/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-ingest/SKILL.md")),
+    (
+        "wiki-ingest/references/source-file.md",
+        include_str!("../../docs/i18n/en/skills/owly/wiki-ingest/references/source-file.md"),
+    ),
+    (
+        "wiki-ingest/references/git-repository.md",
+        include_str!("../../docs/i18n/en/skills/owly/wiki-ingest/references/git-repository.md"),
+    ),
     ("wiki-maintenance/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-maintenance/SKILL.md")),
-    ("wiki-search/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-search/SKILL.md")),
+    (
+        "wiki-maintenance/references/internal-refactor.md",
+        include_str!("../../docs/i18n/en/skills/owly/wiki-maintenance/references/internal-refactor.md"),
+    ),
+    (
+        "wiki-maintenance/references/graph-migration.md",
+        include_str!("../../docs/i18n/en/skills/owly/wiki-maintenance/references/graph-migration.md"),
+    ),
+    ("wiki-query/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-query/SKILL.md")),
 ];
 
 #[derive(Debug, ClapArgs)]

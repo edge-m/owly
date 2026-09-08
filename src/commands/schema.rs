@@ -26,6 +26,7 @@ pub fn run(args: &Args) -> Result<u8, String> {
     match args.format {
         Format::Json => {
             let value = serde_json::json!({
+                "name": config.name,
                 "wiki_root": context.wiki_root(),
                 "source_tracking": {
                     "enabled": config.source_tracking.enabled,
@@ -43,6 +44,7 @@ pub fn run(args: &Args) -> Result<u8, String> {
             println!("{}", serde_json::to_string_pretty(&value).map_err(|error| error.to_string())?);
         }
         Format::Text => {
+            println!("name: {}", config.name);
             println!("wiki_root: {}", context.wiki_root().display());
             println!("types:");
             for (name, type_config) in &config.types {

@@ -15,6 +15,9 @@ pub use schema::{
 #[serde(default)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    /// Logical name of this wiki graph.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub name: String,
     /// Version of owly that generated this configuration.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub owly_version: Option<String>,

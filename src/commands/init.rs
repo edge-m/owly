@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use clap::Args as ClapArgs;
+use clap::{Args as ClapArgs, ValueEnum};
 use indexmap::IndexMap;
 use owly_core::config::{
     Config, ConfigLintConfig, DirectoryConfig, MandatoryFieldRule, TypeConfig, ValueType, WikiLintConfig,
@@ -10,6 +10,7 @@ use owly_core::config::{
 const CONFIG_NAME: &str = "owly.yml";
 
 const TOP_LEVEL_COMMENTS: &[(&str, &str)] = &[
+    ("name:", "Logical name of this wiki graph."),
     ("owly_version:", "Owly version that generated this configuration."),
     ("wiki_root:", "Wiki root path used by Owly commands."),
     ("directories:", "Directory structure and descriptions."),
@@ -21,7 +22,39 @@ const TOP_LEVEL_COMMENTS: &[(&str, &str)] = &[
 ];
 
 #[derive(Debug, ClapArgs)]
-pub struct Args {}
+pub struct Args {
+    /// Show the available starter templates.
+    #[arg(long, conflicts_with = "template")]
+    pub list_templates: bool,
+    /// Starter template to use.
+    #[arg(long, value_enum)]
+    pub template: Option<Template>,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum Template {
+    Blank,
+    Personal,
+    Research,
+}
+
+impl Template {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Blank => "blank",
+            Self::Personal => "personal",
+            Self::Research => "research",
+        }
+    }
+
+    fn description(self) -> &'static str {
+        match self {
+            Self::Blank => "Minimal Wiki with entrance.md.",
+            Self::Personal => "Personal notes and knowledge organization.",
+            Self::Research => "Research notes with tracked sources.",
+        }
+    }
+}
 
 fn mandatory_field(value_type: ValueType, description: &str) -> MandatoryFieldRule {
     MandatoryFieldRule {
@@ -53,13 +86,28 @@ fn add_top_level_comments(yaml: &str) -> String {
     output
 }
 
-pub fn run(_args: &Args) -> Result<u8, String> {
+pub fn run(args: &Args) -> Result<u8, String> {
+    if args.list_templates {
+        for template in [Template::Blank, Template::Personal, Template::Research] {
+            println!("{}\n  {}", template.name(), template.description());
+        }
+        return Ok(0);
+    }
+
+    let template = args.template.ok_or_else(|| {
+        "a template is required; run `owly init --list-templates` to see the available templates".to_string()
+    })?;
     let config_path = PathBuf::from(CONFIG_NAME);
     if config_path.exists() {
         return Err(format!("configuration file already exists: {}", config_path.display()));
     }
+    let entrance_path = PathBuf::from("entrance.md");
+    if entrance_path.exists() {
+        return Err(format!("entry page already exists: {}", entrance_path.display()));
+    }
 
-    let config = Config {
+    let mut config = Config {
+        name: template.name().to_string(),
         owly_version: Some(env!("CARGO_PKG_VERSION").to_string()),
         wiki_root: Some(PathBuf::from(".")),
         directories: IndexMap::from([(
@@ -114,6 +162,19 @@ pub fn run(_args: &Args) -> Result<u8, String> {
         config_lint: ConfigLintConfig { max_nesting_depth: Some(1) },
         source_tracking: owly_core::config::SourceTrackingConfig { enabled: true },
     };
+    if matches!(template, Template::Blank) {
+        config.mandatory_fields.clear();
+        config.types.clear();
+        config.source_tracking.enabled = false;
+    } else if matches!(template, Template::Research) {
+        config.directories.insert(
+            "references".to_string(),
+            DirectoryConfig {
+                description: Some("Research references and evidence".to_string()),
+                ..Default::default()
+            },
+        );
+    }
     let yaml =
         serde_yaml::to_string(&config).map_err(|error| format!("cannot serialize default configuration: {error}"))?;
     let content = add_top_level_comments(&yaml);
@@ -121,6 +182,15 @@ pub fn run(_args: &Args) -> Result<u8, String> {
     fs::write(&config_path, content)
         .map_err(|error| format!("cannot write configuration {}: {error}", config_path.display()))?;
     println!("wrote {}", config_path.display());
+
+    let entrance_content = if matches!(template, Template::Blank) {
+        "---\n{}\n---\n# Wiki\n"
+    } else {
+        "---\ntype: note\ntitle: Wiki entrance\ndescription: Start here.\ntags: []\ngenerated:\n  at: 2026-01-01T00:00:00Z\n  by: owly\nstale_after: 2099-01-01\n---\n# Wiki\n"
+    };
+    fs::write(&entrance_path, entrance_content)
+        .map_err(|error| format!("cannot write {}: {error}", entrance_path.display()))?;
+    println!("wrote {}", entrance_path.display());
 
     Ok(0)
 }

@@ -58,7 +58,11 @@ fn run_internal(args: &Args, details: bool) -> Result<u8, String> {
     let scanned = Workspace::new(config_context.wiki_root().to_path_buf())
         .with_excludes(&config_context.config().wiki_lint.exclude)
         .scan()?;
-    diagnostics.extend(validation::lint_wiki::lint(&scanned, config_context.config()));
+    diagnostics.extend(validation::lint_wiki::lint_at_root(
+        &scanned,
+        config_context.config(),
+        config_context.wiki_root(),
+    ));
     if config_context.config().source_tracking.enabled {
         diagnostics.extend(validation::lint_wiki::lint_sources_at_root(&scanned, config_context.wiki_root()));
     }

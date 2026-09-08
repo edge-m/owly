@@ -8,7 +8,6 @@ pub fn initialize(connection: &Connection) -> Result<()> {
 
         CREATE TABLE IF NOT EXISTS documents (
             path TEXT PRIMARY KEY NOT NULL,
-            content_hash TEXT NOT NULL,
             frontmatter_hash TEXT NOT NULL,
             links_hash TEXT NOT NULL
         );

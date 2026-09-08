@@ -7,7 +7,6 @@ use super::{CacheDb, Operator, SearchQuery};
 fn document() -> IndexedDocument {
     IndexedDocument {
         path: "notes/example.md".to_string(),
-        content_hash: "content".to_string(),
         frontmatter_hash: "frontmatter".to_string(),
         links_hash: "links".to_string(),
     }
@@ -88,8 +87,8 @@ fn initializes_schema_and_crud_is_atomic() {
             .is_empty()
     );
     assert!(db.search(&SearchQuery::new()).is_err());
-    db.upsert_document(&IndexedDocument { content_hash: "changed".to_string(), ..document.clone() }).unwrap();
-    assert_eq!(db.document(&document.path).unwrap().unwrap().content_hash, "changed");
+    db.upsert_document(&IndexedDocument { links_hash: "changed".to_string(), ..document.clone() }).unwrap();
+    assert_eq!(db.document(&document.path).unwrap().unwrap().links_hash, "changed");
     assert!(db.delete_document(&document.path).unwrap());
     assert!(db.document(&document.path).unwrap().is_none());
     assert!(db.frontmatter_values(&document.path).unwrap().is_empty());

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use clap::{Args as ClapArgs, ValueEnum};
 use owly_cache::CacheDb;
 use owly_source::LocalFileCache;
+use owly_types::{DocumentIndex, IndexedDocument};
 use serde::Serialize;
 
 use super::context;
@@ -79,11 +80,18 @@ pub fn run(args: &Args) -> Result<u8, String> {
         })
         .collect::<Vec<_>>();
 
-    let mut db =
-        CacheDb::open(&database).map_err(|error| format!("cannot open database {}: {error}", database.display()))?;
-    if rebuild {
-        db.clear().map_err(|error| format!("cannot clear database: {error}"))?;
-    }
+    let working_database = if rebuild {
+        let temporary = database.with_extension(format!("sqlite.tmp-{}", std::process::id()));
+        if temporary.exists() {
+            fs::remove_file(&temporary)
+                .map_err(|error| format!("cannot remove temporary database {}: {error}", temporary.display()))?;
+        }
+        temporary
+    } else {
+        database.clone()
+    };
+    let mut db = CacheDb::open(&working_database)
+        .map_err(|error| format!("cannot open database {}: {error}", working_database.display()))?;
 
     let current_paths = paths.iter().map(|path| path.to_string_lossy().replace('\\', "/")).collect::<BTreeSet<_>>();
     let mut indexed = 0;
@@ -99,9 +107,17 @@ pub fn run(args: &Args) -> Result<u8, String> {
             let changed = rebuild || changed_by_metadata;
             if changed {
                 let index = owly_source::load(root, relative).map_err(|error| error.to_string())?;
-                db.replace_index(&index)
-                    .map_err(|error| format!("cannot write {} to index: {error}", relative.display()))?;
-                indexed += 1;
+                let existing = db
+                    .document(&index.document.path)
+                    .map_err(|error| format!("cannot read {} from index: {error}", relative.display()))?;
+                let replace = derived_index_changed(existing.as_ref(), &index);
+                if replace {
+                    db.replace_index(&index)
+                        .map_err(|error| format!("cannot write {} to index: {error}", relative.display()))?;
+                    indexed += 1;
+                } else {
+                    reused += 1;
+                }
             } else {
                 reused += 1;
             }
@@ -120,6 +136,12 @@ pub fn run(args: &Args) -> Result<u8, String> {
             removed +=
                 usize::from(db.delete_document(&path).map_err(|error| format!("cannot remove {path}: {error}"))?);
         }
+    }
+    drop(db);
+    if rebuild {
+        fs::rename(&working_database, &database).map_err(|error| {
+            format!("cannot replace database {} with {}: {error}", database.display(), working_database.display())
+        })?;
     }
     let mut root_cache = LocalFileCache::load(&root_cache_path);
     root_cache
@@ -144,6 +166,13 @@ pub fn run(args: &Args) -> Result<u8, String> {
     Ok(0)
 }
 
+fn derived_index_changed(existing: Option<&IndexedDocument>, index: &DocumentIndex) -> bool {
+    existing.is_none_or(|document| {
+        document.frontmatter_hash != index.document.frontmatter_hash
+            || document.links_hash != index.document.links_hash
+    })
+}
+
 fn group_by_directory(root: &Path, paths: &[PathBuf]) -> BTreeMap<PathBuf, Vec<(PathBuf, PathBuf)>> {
     let mut grouped = BTreeMap::new();
     for relative in paths {
@@ -158,8 +187,31 @@ mod tests {
     use std::fs;
 
     use owly_cache::CacheDb;
+    use owly_types::{DocumentIndex, IndexedDocument};
 
-    use super::{Args, Format, run};
+    use super::{Args, Format, derived_index_changed, run};
+
+    fn index_with_hashes(frontmatter_hash: &str, links_hash: &str) -> DocumentIndex {
+        DocumentIndex {
+            document: IndexedDocument {
+                path: "note.md".to_string(),
+                frontmatter_hash: frontmatter_hash.to_string(),
+                links_hash: links_hash.to_string(),
+            },
+            frontmatter: Vec::new(),
+            links: Vec::new(),
+            sources: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn detects_derived_index_changes_by_hash() {
+        let existing = index_with_hashes("frontmatter", "links").document;
+        assert!(!derived_index_changed(Some(&existing), &index_with_hashes("frontmatter", "links")));
+        assert!(derived_index_changed(Some(&existing), &index_with_hashes("changed", "links")));
+        assert!(derived_index_changed(Some(&existing), &index_with_hashes("frontmatter", "changed")));
+        assert!(derived_index_changed(None, &index_with_hashes("frontmatter", "links")));
+    }
 
     #[test]
     fn builds_and_reuses_an_index() {
@@ -183,6 +235,31 @@ mod tests {
         run(&args).unwrap();
         assert!(wiki.join(".owly-cache.json").is_file());
         assert!(wiki.join(".owly/index.sqlite").is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn keeps_existing_database_when_rebuild_fails() {
+        let root = std::env::temp_dir().join(format!("owly-index-failure-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let wiki = root.join("wiki");
+        fs::create_dir_all(&wiki).unwrap();
+        fs::write(
+            root.join("owly.yml"),
+            "wiki_root: wiki\nwiki_lint:\n  exclude: []\nsource_tracking:\n  enabled: false\n",
+        )
+        .unwrap();
+        fs::write(wiki.join("valid.md"), "---\ntags: [rust]\n---\n").unwrap();
+        let args = Args { config: Some(root.join("owly.yml")), database: None, force: false, format: Format::Json };
+
+        run(&args).unwrap();
+        let database = wiki.join(".owly/index.sqlite");
+        fs::write(wiki.join("invalid.md"), "---\ntags: [\n---\n").unwrap();
+        let rebuild_args = Args { force: true, ..args };
+        assert!(run(&rebuild_args).is_err());
+
+        let db = CacheDb::open(&database).unwrap();
+        assert_eq!(db.document_paths().unwrap(), ["valid.md".to_string()]);
         fs::remove_dir_all(root).unwrap();
     }
 }

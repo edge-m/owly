@@ -10,7 +10,8 @@ counts, relationships, and current validation state.
 
 ## Workflow
 
-1. Run `owly schema --format json` to obtain the wiki root, configured types,
+1. Read `<wiki-root>/entrance.md` as the graph entry, then run
+   `owly schema --format json` to obtain the wiki root, configured types,
    fields, directory roles, and configuration diagnostics.
 2. Run `owly overview directories --statistics` and
    `owly overview types --statistics` to collect actual page counts.

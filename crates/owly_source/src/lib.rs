@@ -3,8 +3,10 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
+use chrono::{DateTime, SecondsFormat, Utc};
 use owly_types::{
     DocumentIndex, FrontmatterValue, IndexedDocument, IndexedFrontmatterValue, IndexedLink, IndexedSourceReference,
 };
@@ -71,14 +73,11 @@ pub fn load(root: impl AsRef<Path>, relative_path: impl AsRef<Path>) -> Result<D
     let relative_path = relative_path.as_ref();
     let relative = normalize_relative_path(relative_path)?;
     let path = root.as_ref().join(relative_path);
-    let bytes = fs::read(&path).map_err(|source| SourceError::Io { path: path.clone(), source })?;
-    let content = String::from_utf8(bytes.clone()).map_err(|source| SourceError::InvalidUtf8 { path, source })?;
-    let (frontmatter, body) = split_frontmatter(&content).ok_or_else(|| SourceError::InvalidFrontmatter {
-        path: relative.clone(),
-        message: "frontmatter must start with '---' and end with a matching delimiter".to_string(),
-    })?;
-    let yaml: Value = serde_yaml::from_str(frontmatter)
-        .map_err(|error| SourceError::InvalidFrontmatter { path: relative.clone(), message: error.to_string() })?;
+    let file = fs::File::open(&path).map_err(|source| SourceError::Io { path: path.clone(), source })?;
+    let mut reader = BufReader::new(file);
+    let yaml = read_frontmatter(&mut reader, &path, &relative)?;
+    let links = extract_links_from_reader(&mut reader, &relative, &path)?;
+    let links_hash = sha256(serialize_links(&links).as_bytes());
     if !matches!(yaml, Value::Mapping(_)) {
         return Err(SourceError::InvalidFrontmatter {
             path: relative,
@@ -86,8 +85,6 @@ pub fn load(root: impl AsRef<Path>, relative_path: impl AsRef<Path>) -> Result<D
         });
     }
 
-    let links = extract_links(body, &relative);
-    let links_hash = sha256(serialize_links(&links).as_bytes());
     let mut values = flatten_frontmatter(&yaml);
     let mut sources = source_references(&yaml, &relative);
     for value in &mut values {
@@ -98,16 +95,46 @@ pub fn load(root: impl AsRef<Path>, relative_path: impl AsRef<Path>) -> Result<D
     }
     let frontmatter_hash = sha256(serialize_frontmatter(&values).as_bytes());
     Ok(DocumentIndex {
-        document: IndexedDocument {
-            path: relative.clone(),
-            content_hash: sha256(&bytes),
-            frontmatter_hash,
-            links_hash,
-        },
+        document: IndexedDocument { path: relative.clone(), frontmatter_hash, links_hash },
         frontmatter: values,
         links,
         sources,
     })
+}
+
+fn read_frontmatter(reader: &mut impl BufRead, path: &Path, relative: &str) -> Result<Value, SourceError> {
+    let first = next_line(reader, path)?.ok_or_else(|| invalid_frontmatter(relative))?;
+    if first.trim() != "---" {
+        return Err(invalid_frontmatter(relative));
+    }
+    let mut frontmatter = String::new();
+    loop {
+        let Some(line) = next_line(reader, path)? else { return Err(invalid_frontmatter(relative)) };
+        if line.trim() == "---" {
+            break;
+        }
+        frontmatter.push_str(&line);
+    }
+    let yaml = serde_yaml::from_str(&frontmatter)
+        .map_err(|error| SourceError::InvalidFrontmatter { path: relative.to_string(), message: error.to_string() })?;
+    Ok(yaml)
+}
+
+fn next_line(reader: &mut impl BufRead, path: &Path) -> Result<Option<String>, SourceError> {
+    let mut bytes = Vec::new();
+    let length =
+        reader.read_until(b'\n', &mut bytes).map_err(|source| SourceError::Io { path: path.to_path_buf(), source })?;
+    if length == 0 {
+        return Ok(None);
+    }
+    String::from_utf8(bytes).map(Some).map_err(|source| SourceError::InvalidUtf8 { path: path.to_path_buf(), source })
+}
+
+fn invalid_frontmatter(path: &str) -> SourceError {
+    SourceError::InvalidFrontmatter {
+        path: path.to_string(),
+        message: "frontmatter must start with '---' and end with a matching delimiter".to_string(),
+    }
 }
 
 fn is_markdown(path: &Path) -> bool {
@@ -130,24 +157,6 @@ fn normalize_relative_path(path: &Path) -> Result<String, SourceError> {
         return Err(SourceError::InvalidPath(path.display().to_string()));
     }
     Ok(components.join("/"))
-}
-
-fn split_frontmatter(content: &str) -> Option<(&str, &str)> {
-    let mut lines = content.split_inclusive('\n');
-    let first = lines.next()?;
-    if first.trim() != "---" {
-        return None;
-    }
-    let frontmatter_start = first.len();
-    let mut offset = frontmatter_start;
-    for line in lines {
-        let line_start = offset;
-        offset += line.len();
-        if line.trim() == "---" {
-            return Some((&content[frontmatter_start..line_start], &content[offset..]));
-        }
-    }
-    None
 }
 
 fn flatten_frontmatter(document: &Value) -> Vec<IndexedFrontmatterValue> {
@@ -191,7 +200,9 @@ fn typed_value(value: &Value) -> FrontmatterValue {
         Value::Bool(value) => FrontmatterValue::Boolean(*value),
         Value::Number(value) => FrontmatterValue::Number(value.as_f64().unwrap_or_default()),
         Value::String(value) if is_date(value) => FrontmatterValue::Date(value.clone()),
-        Value::String(value) if is_datetime(value) => FrontmatterValue::Datetime(value.clone()),
+        Value::String(value) if is_datetime(value) => {
+            FrontmatterValue::Datetime(normalize_datetime(value).unwrap_or_else(|| value.clone()))
+        }
         Value::String(value) => FrontmatterValue::Text(value.clone()),
         _ => FrontmatterValue::Null,
     }
@@ -217,6 +228,12 @@ fn is_datetime(value: &str) -> bool {
     value.len() > 10 && value.as_bytes().get(10).is_some_and(|byte| *byte == b'T' || *byte == b' ')
 }
 
+fn normalize_datetime(value: &str) -> Option<String> {
+    DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|datetime| datetime.with_timezone(&Utc).to_rfc3339_opts(SecondsFormat::AutoSi, true))
+}
+
 fn source_references(document: &Value, _path: &str) -> Vec<IndexedSourceReference> {
     let Some(items) = document.get("sources").and_then(Value::as_sequence) else { return Vec::new() };
     items
@@ -235,44 +252,88 @@ fn source_references(document: &Value, _path: &str) -> Vec<IndexedSourceReferenc
         .collect()
 }
 
-fn extract_links(body: &str, source_path: &str) -> Vec<IndexedLink> {
-    let mut links = BTreeMap::<(String, String, String), i64>::new();
-    let mut offset = 0;
-    while let Some(open) = body[offset..].find('[') {
-        let open = offset + open;
-        if open > 0 && body.as_bytes()[open - 1] == b'!' {
-            offset = open + 1;
-            continue;
-        }
-        let Some(label_end) = body[open + 1..].find(']') else { break };
-        let label_end = open + label_end + 1;
-        if body.as_bytes().get(label_end + 1) != Some(&b'(') {
-            offset = label_end + 1;
-            continue;
-        }
-        let Some(close) = body[label_end + 2..].find(')') else { break };
-        let close = label_end + close + 2;
-        let destination = body[label_end + 2..close].trim();
-        let target = destination
-            .split_once(char::is_whitespace)
-            .map_or(destination, |(target, _)| target)
-            .trim_matches(['<', '>']);
-        if !target.is_empty() && !target.starts_with('#') {
-            let (resolved, kind) = resolve_target(target, source_path);
-            *links.entry((target.to_string(), resolved, kind)).or_default() += 1;
-        }
-        offset = close + 1;
+fn extract_links_from_reader(
+    reader: &mut impl BufRead, source_path: &str, path: &Path,
+) -> Result<Vec<IndexedLink>, SourceError> {
+    let mut extractor = LinkExtractor::new(source_path);
+    while let Some(line) = next_line(reader, path)? {
+        extractor.push(&line);
     }
-    links
-        .into_iter()
-        .map(|((raw_target, resolved_target, target_kind), occurrence_count)| IndexedLink {
-            source_path: source_path.to_string(),
-            raw_target,
-            resolved_target,
-            target_kind,
-            occurrence_count,
-        })
-        .collect()
+    Ok(extractor.finish())
+}
+
+struct LinkExtractor<'a> {
+    source_path: &'a str,
+    links: BTreeMap<(String, String, String), i64>,
+    state: LinkState,
+    previous_was_bang: bool,
+}
+
+enum LinkState {
+    Searching,
+    Label { image: bool },
+    AfterLabel { image: bool },
+    Destination(String),
+}
+
+impl<'a> LinkExtractor<'a> {
+    fn new(source_path: &'a str) -> Self {
+        Self { source_path, links: BTreeMap::new(), state: LinkState::Searching, previous_was_bang: false }
+    }
+    fn push(&mut self, input: &str) {
+        for character in input.chars() {
+            match &mut self.state {
+                LinkState::Searching => {
+                    if character == '[' {
+                        self.state = LinkState::Label { image: self.previous_was_bang };
+                    }
+                    self.previous_was_bang = character == '!';
+                }
+                LinkState::Label { image } => {
+                    if character == ']' {
+                        self.state = LinkState::AfterLabel { image: *image };
+                    }
+                }
+                LinkState::AfterLabel { image } => {
+                    self.state = if character == '(' && !*image {
+                        LinkState::Destination(String::new())
+                    } else {
+                        LinkState::Searching
+                    };
+                    self.previous_was_bang = character == '!';
+                }
+                LinkState::Destination(destination) => {
+                    if character == ')' {
+                        let target = destination
+                            .trim()
+                            .split_once(char::is_whitespace)
+                            .map_or(destination.trim(), |(target, _)| target)
+                            .trim_matches(['<', '>']);
+                        if !target.is_empty() && !target.starts_with('#') {
+                            let (resolved, kind) = resolve_target(target, self.source_path);
+                            *self.links.entry((target.to_string(), resolved, kind)).or_default() += 1;
+                        }
+                        self.state = LinkState::Searching;
+                        self.previous_was_bang = false;
+                    } else {
+                        destination.push(character);
+                    }
+                }
+            }
+        }
+    }
+    fn finish(self) -> Vec<IndexedLink> {
+        self.links
+            .into_iter()
+            .map(|((raw_target, resolved_target, target_kind), occurrence_count)| IndexedLink {
+                source_path: self.source_path.to_string(),
+                raw_target,
+                resolved_target,
+                target_kind,
+                occurrence_count,
+            })
+            .collect()
+    }
 }
 
 fn resolve_target(target: &str, source_path: &str) -> (String, String) {
@@ -287,18 +348,29 @@ fn resolve_target(target: &str, source_path: &str) -> (String, String) {
         parent.join(target).to_string_lossy().into_owned()
     };
     let mut components = Vec::new();
+    let mut escaped_components = 0;
     let normalized = joined.replace('\\', "/");
     for component in normalized.split('/') {
         match component {
             "" | "." => {}
             ".." => {
-                components.pop();
+                if components.pop().is_none() {
+                    escaped_components += 1;
+                }
             }
             component => components.push(component),
         }
     }
-    let resolved = components.join("/");
-    let kind = if resolved.ends_with(".md") { "page" } else { "resource" };
+    let resolved = format!("{}{}", "../".repeat(escaped_components), components.join("/"));
+    let kind = if escaped_components > 0
+        && Path::new(&resolved).file_name().and_then(|name| name.to_str()) == Some("entrance.md")
+    {
+        "external_graph"
+    } else if resolved.ends_with(".md") {
+        "page"
+    } else {
+        "resource"
+    };
     (resolved, kind.to_string())
 }
 

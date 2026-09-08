@@ -49,8 +49,8 @@ fn run_validate(root: &Path) -> std::process::Output {
 fn valid_wiki_returns_success() {
     let root = fixture("valid");
     write_config(&root);
-    fs::write(root.join("index.md"), "---\ntype: note\ntitle: Index\n---\n[Welcome](note.md)\n")
-        .expect("index should be written");
+    fs::write(root.join("entrance.md"), "---\ntype: note\ntitle: Index\n---\n[Welcome](note.md)\n")
+        .expect("entrance should be written");
     fs::write(root.join("note.md"), "---\nid: welcome\ntype: note\ntitle: Welcome\nstatus: active\n---\n# Welcome\n")
         .expect("document should be written");
 
@@ -61,10 +61,24 @@ fn valid_wiki_returns_success() {
 }
 
 #[test]
+fn validate_requires_entrance_page() {
+    let root = fixture("missing-entrance");
+    write_config(&root);
+    fs::write(root.join("note.md"), "---\ntype: note\ntitle: Note\n---\n").expect("document should be written");
+
+    let output = run_validate(&root);
+    assert_eq!(output.status.code(), Some(1));
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("missing-entrance"));
+    assert!(text.contains("wiki must contain entrance.md"));
+    fs::remove_dir_all(root).expect("fixture should be removed");
+}
+
+#[test]
 fn validate_prints_summary_by_default_and_details_on_request() {
     let root = fixture("validate-output");
     write_config(&root);
-    fs::write(root.join("index.md"), "---\ntype: note\n---\n").expect("index should be written");
+    fs::write(root.join("entrance.md"), "---\ntype: note\n---\n").expect("entrance should be written");
 
     let config = root.join("owly.yml");
     let summary = Command::new(env!("CARGO_BIN_EXE_owly"))
@@ -99,7 +113,7 @@ fn source_tracking_checks_existence_and_hash_drift() {
     fs::create_dir_all(root.join("raw")).expect("raw directory should be created");
     fs::write(root.join("raw/source.txt"), "abc").expect("source should be written");
     fs::write(
-        root.join("index.md"),
+        root.join("entrance.md"),
         "---\ntype: note\nsources:\n  - path: raw/source.txt\n    sha256: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\n---\n",
     )
     .expect("page should be written");
@@ -117,8 +131,8 @@ fn source_tracking_checks_existence_and_hash_drift() {
 fn overview_and_search_return_structured_results() {
     let root = fixture("overview-search");
     write_config(&root);
-    fs::write(root.join("index.md"), "---\ntype: note\ntitle: Index\n---\n[Welcome](note.md)\n")
-        .expect("index should be written");
+    fs::write(root.join("entrance.md"), "---\ntype: note\ntitle: Index\n---\n[Welcome](note.md)\n")
+        .expect("entrance should be written");
     fs::write(root.join("note.md"), "---\ntype: note\ntitle: Welcome\nstatus: active\n---\n")
         .expect("document should be written");
 
@@ -201,8 +215,8 @@ fn config_validate_is_the_configuration_validation_command() {
 fn graph_exports_nodes_edges_and_maintenance_signals() {
     let root = fixture("graph");
     write_config(&root);
-    fs::write(root.join("index.md"), "---\ntype: note\ntitle: Index\n---\n[Welcome](note.md)\n")
-        .expect("index should be written");
+    fs::write(root.join("entrance.md"), "---\ntype: note\ntitle: Index\n---\n[Welcome](note.md)\n")
+        .expect("entrance should be written");
     fs::write(root.join("note.md"), "---\ntype: note\ntitle: Welcome\n---\n[Missing](missing.md)\n")
         .expect("note should be written");
     fs::write(root.join("orphan.md"), "---\ntype: note\ntitle: Orphan\n---\n").expect("orphan should be written");
@@ -217,6 +231,25 @@ fn graph_exports_nodes_edges_and_maintenance_signals() {
     assert_eq!(graph["broken_references"][0]["target"], "missing");
     assert_eq!(graph["orphan_pages"][0], "orphan");
     assert_eq!(graph["unreachable_pages"][0], "orphan");
+    fs::remove_dir_all(root).expect("fixture should be removed");
+}
+
+#[test]
+fn external_graph_links_only_allow_entrance() {
+    let root = fixture("external-graph-links");
+    write_config(&root);
+    fs::write(
+        root.join("entrance.md"),
+        "---\ntype: note\ntitle: Entrance\n---\n[Other](../other/entrance.md)\n[Invalid](../other/page.md)\n",
+    )
+    .expect("entrance should be written");
+
+    let output = run_validate(&root);
+    assert_eq!(output.status.code(), Some(1));
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("external-graph-entry"));
+    assert!(text.contains("external graph link must target entrance.md"));
+    assert!(text.contains("missing-external-graph"));
     fs::remove_dir_all(root).expect("fixture should be removed");
 }
 
@@ -239,8 +272,8 @@ fn schema_exports_configuration_for_agents() {
 fn validate_reports_maintenance_diagnostics_without_modifying_files() {
     let root = fixture("maintenance");
     write_config(&root);
-    fs::write(root.join("index.md"), "---\ntype: note\ntitle: Index\n---\n[Missing](missing.md)\n")
-        .expect("index should be written");
+    fs::write(root.join("entrance.md"), "---\ntype: note\ntitle: Index\n---\n[Missing](missing.md)\n")
+        .expect("entrance should be written");
     fs::write(root.join("orphan.md"), "---\ntype: note\ntitle: Orphan\n---\n").expect("orphan should be written");
     let before = fs::read(root.join("orphan.md")).expect("orphan should be readable");
 
@@ -260,8 +293,8 @@ fn validate_reports_maintenance_diagnostics_without_modifying_files() {
 fn validate_reports_orphans_and_can_filter_to_one_file() {
     let root = fixture("orphans");
     write_config(&root);
-    fs::write(root.join("index.md"), "---\ntype: note\ntitle: Index\n---\n[Welcome](note.md)\n")
-        .expect("index should be written");
+    fs::write(root.join("entrance.md"), "---\ntype: note\ntitle: Index\n---\n[Welcome](note.md)\n")
+        .expect("entrance should be written");
     fs::write(root.join("note.md"), "---\ntype: note\ntitle: Welcome\n---\n").expect("document should be written");
     fs::write(root.join("orphan.md"), "---\ntype: note\ntitle: Orphan\n---\n").expect("document should be written");
 
@@ -286,8 +319,8 @@ fn validate_reports_orphans_and_can_filter_to_one_file() {
 fn missing_field_is_reported() {
     let root = fixture("missing-field");
     write_config(&root);
-    fs::write(root.join("index.md"), "---\ntype: note\ntitle: Index\n---\n[Missing](note.md)\n")
-        .expect("index should be written");
+    fs::write(root.join("entrance.md"), "---\ntype: note\ntitle: Index\n---\n[Missing](note.md)\n")
+        .expect("entrance should be written");
     fs::write(root.join("note.md"), "---\nid: missing-title\ntype: note\n---\n").expect("document should be written");
 
     let output = run_validate(&root);
@@ -301,8 +334,8 @@ fn missing_field_is_reported() {
 fn duplicate_identifier_and_invalid_frontmatter_are_reported() {
     let root = fixture("invalid");
     write_config(&root);
-    fs::write(root.join("index.md"), "---\ntype: note\ntitle: Index\n---\n[One](one.md) [Two](two.md)\n")
-        .expect("index should be written");
+    fs::write(root.join("entrance.md"), "---\ntype: note\ntitle: Index\n---\n[One](one.md) [Two](two.md)\n")
+        .expect("entrance should be written");
     fs::write(root.join("one.md"), "---\nid: same\ntype: note\ntitle: One\n---\n")
         .expect("document should be written");
     fs::write(root.join("two.md"), "---\nid: same\ntype: note\ntitle: Two\n---\n")
@@ -326,10 +359,9 @@ fn skill_command_writes_skill_file() {
 
     assert!(output.status.success());
     assert!(root.join("owly/using-wiki/SKILL.md").is_file());
-    assert!(root.join("owly/wiki-overview/SKILL.md").is_file());
     assert!(root.join("owly/wiki-config/SKILL.md").is_file());
     assert!(root.join("owly/wiki-maintenance/SKILL.md").is_file());
-    assert!(root.join("owly/wiki-search/SKILL.md").is_file());
+    assert!(root.join("owly/wiki-query/SKILL.md").is_file());
     assert!(!root.join("owly/SKILL.md").exists());
     fs::remove_dir_all(root).expect("fixture should be removed");
 }
@@ -352,8 +384,11 @@ fn onboard_command_prints_agent_workflow_without_writing_files() {
 #[test]
 fn init_command_writes_default_config() {
     let root = fixture("init");
-    let output =
-        Command::new(env!("CARGO_BIN_EXE_owly")).arg("init").current_dir(&root).output().expect("owly should run");
+    let output = Command::new(env!("CARGO_BIN_EXE_owly"))
+        .args(["init", "--template", "personal"])
+        .current_dir(&root)
+        .output()
+        .expect("owly should run");
 
     assert!(output.status.success());
     let config = fs::read_to_string(root.join("owly.yml")).expect("config should be written");
@@ -370,6 +405,7 @@ fn init_command_writes_default_config() {
     assert!(config.contains("**/.*"));
     assert!(config.contains("**/README.md"));
     assert!(config.contains("raw/**"));
+    assert!(root.join("entrance.md").is_file());
     assert!(config.contains("# Wiki root path used by Owly commands.\nwiki_root:"));
     assert!(config.contains("\n\n# Directory structure and descriptions.\ndirectories:"));
     assert!(config.contains("\n\n# Fields required on every document.\nmandatory_fields:"));
@@ -397,6 +433,25 @@ fn init_command_writes_default_config() {
 }
 
 #[test]
+fn init_lists_templates_without_writing_files() {
+    let root = fixture("init-list");
+    let output = Command::new(env!("CARGO_BIN_EXE_owly"))
+        .args(["init", "--list-templates"])
+        .current_dir(&root)
+        .output()
+        .expect("owly should run");
+
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).expect("template list should be utf-8");
+    assert!(text.contains("blank"));
+    assert!(text.contains("personal"));
+    assert!(text.contains("research"));
+    assert!(!root.join("owly.yml").exists());
+    assert!(!root.join("entrance.md").exists());
+    fs::remove_dir_all(root).expect("fixture should be removed");
+}
+
+#[test]
 fn configured_root_and_nested_directories_are_supported() {
     let root = fixture("configured-root");
     fs::create_dir_all(root.join("wiki/raw/inbox")).expect("wiki directory should be created");
@@ -405,8 +460,8 @@ fn configured_root_and_nested_directories_are_supported() {
         "wiki_root: wiki\ndirectories:\n  raw:\n    description: Raw source\n    directories:\n      inbox:\n        description: Incoming files\nmandatory_fields:\n  type:\n    type: string\ntypes:\n  note:\n    description: A note\n    fields: {}\n",
     )
     .expect("config should be written");
-    fs::write(root.join("wiki/index.md"), "---\ntype: note\n---\n[Wrong](raw/inbox/wrong.md)\n")
-        .expect("index should be written");
+    fs::write(root.join("wiki/entrance.md"), "---\ntype: note\n---\n[Wrong](raw/inbox/wrong.md)\n")
+        .expect("entrance should be written");
     fs::write(root.join("wiki/raw/inbox/wrong.md"), "---\nid: wrong\ntype: note\n---\n")
         .expect("document should be written");
 
@@ -464,8 +519,11 @@ fn validate_reports_type_value_and_nested_shape_errors() {
         "wiki_root: .\nmandatory_fields:\n  type:\n    type: string\n  tags:\n    type: array\n    items:\n      type: string\ntypes:\n  note:\n    fields:\n      status:\n        type: string\n        values: [draft, active]\n      published:\n        type: date\n",
     )
     .expect("config should be written");
-    fs::write(root.join("index.md"), "---\ntype: note\ntags: [one, 2]\nstatus: archived\npublished: 2026-2-1\n---\n")
-        .expect("index should be written");
+    fs::write(
+        root.join("entrance.md"),
+        "---\ntype: note\ntags: [one, 2]\nstatus: archived\npublished: 2026-2-1\n---\n",
+    )
+    .expect("entrance should be written");
 
     let output = run_validate(&root);
     assert_eq!(output.status.code(), Some(1));
@@ -479,8 +537,8 @@ fn validate_reports_type_value_and_nested_shape_errors() {
 fn search_matches_scalars_and_array_values_and_rejects_bad_queries() {
     let root = fixture("search-values");
     write_config(&root);
-    fs::write(root.join("index.md"), "---\ntype: note\ntitle: Index\nstatus: active\n---\n")
-        .expect("index should be written");
+    fs::write(root.join("entrance.md"), "---\ntype: note\ntitle: Index\nstatus: active\n---\n")
+        .expect("entrance should be written");
     fs::write(root.join("draft.md"), "---\ntype: note\ntitle: Draft\nstatus: draft\n---\n")
         .expect("draft should be written");
 
@@ -541,11 +599,11 @@ fn graph_resolves_relative_links_and_ignores_non_page_links() {
     write_config(&root);
     fs::create_dir_all(root.join("docs")).expect("directory should be created");
     fs::write(
-        root.join("index.md"),
+        root.join("entrance.md"),
         "---\ntype: note\ntitle: Index\n---\n[Guide](docs/guide.md) [asset](image.png) [web](https://example.com)\n",
     )
     .expect("index should be written");
-    fs::write(root.join("docs/guide.md"), "---\ntype: note\ntitle: Guide\n---\n[Home](../index.md#top)\n")
+    fs::write(root.join("docs/guide.md"), "---\ntype: note\ntitle: Guide\n---\n[Home](../entrance.md#top)\n")
         .expect("guide should be written");
 
     let output = Command::new(env!("CARGO_BIN_EXE_owly"))
@@ -570,10 +628,9 @@ fn generated_skills_are_english_and_contain_no_todos() {
     for path in [
         "owly/using-wiki/SKILL.md",
         "owly/wiki-config/SKILL.md",
-        "owly/wiki-overview/SKILL.md",
         "owly/wiki-ingest/SKILL.md",
         "owly/wiki-maintenance/SKILL.md",
-        "owly/wiki-search/SKILL.md",
+        "owly/wiki-query/SKILL.md",
     ] {
         let content = fs::read_to_string(root.join(path)).expect("skill file should be readable");
         assert!(!content.contains("TODO"), "{path} should not contain TODO");
@@ -581,6 +638,10 @@ fn generated_skills_are_english_and_contain_no_todos() {
         assert!(content.contains("Workflow"));
         assert!(content.starts_with("---\nname: "), "{path} should have Agent Skills frontmatter");
     }
+    assert!(root.join("owly/wiki-ingest/references/source-file.md").is_file());
+    assert!(root.join("owly/wiki-ingest/references/git-repository.md").is_file());
+    assert!(root.join("owly/wiki-maintenance/references/internal-refactor.md").is_file());
+    assert!(root.join("owly/wiki-maintenance/references/graph-migration.md").is_file());
     fs::remove_dir_all(root).expect("fixture should be removed");
 }
 

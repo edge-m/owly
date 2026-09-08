@@ -1,18 +1,31 @@
 use chrono::{DateTime, NaiveDate};
 use indexmap::IndexMap;
 use serde_yaml::Value;
+use std::path::Path;
 
 use crate::config::{Config, FieldRule, MandatoryFieldRule, ValueType};
 use crate::diagnostic::Diagnostic;
 use crate::document::{self, Document};
+use crate::graph::ENTRANCE_FILE_NAME;
 use crate::link_resolver::OutgoingTarget;
 use crate::source;
 use crate::workspace::ScanResult;
 
 pub fn lint(scan: &ScanResult, config: &Config) -> Vec<Diagnostic> {
+    lint_with_external_root(scan, config, None)
+}
+
+/// Lint a scan while also checking the existence of external graph entrances.
+pub fn lint_at_root(scan: &ScanResult, config: &Config, wiki_root: &std::path::Path) -> Vec<Diagnostic> {
+    lint_with_external_root(scan, config, Some(wiki_root))
+}
+
+fn lint_with_external_root(
+    scan: &ScanResult, config: &Config, external_root: Option<&std::path::Path>,
+) -> Vec<Diagnostic> {
     let mut diagnostics = scan.diagnostics.clone();
     diagnostics.extend(scan.documents.iter().flat_map(|document| lint_document(document, config)));
-    diagnostics.extend(lint_links(scan));
+    diagnostics.extend(lint_links(scan, external_root));
     if config.source_tracking.enabled {
         diagnostics.extend(lint_sources(scan));
     }
@@ -113,23 +126,48 @@ pub fn lint_sources_at_root(scan: &ScanResult, wiki_root: &std::path::Path) -> V
     diagnostics
 }
 
-fn lint_links(scan: &ScanResult) -> Vec<Diagnostic> {
+fn lint_links(scan: &ScanResult, external_root: Option<&std::path::Path>) -> Vec<Diagnostic> {
     let pages = scan.documents.iter().map(|document| document.page_id()).collect::<std::collections::HashSet<_>>();
     let mut diagnostics = Vec::new();
     for document in &scan.documents {
         let links = document.outgoing_links();
         for link in links.links {
-            if let OutgoingTarget::Page { id } = link.target
-                && !pages.contains(&id)
-            {
-                diagnostics.push(Diagnostic {
+            match link.target {
+                OutgoingTarget::Page { id } if !pages.contains(&id) => diagnostics.push(Diagnostic {
                     code: "broken-link".to_string(),
                     severity: crate::diagnostic::Severity::Error,
                     path: Some(document.relative_file_path_from_wiki_root.clone()),
                     line: Some(link.line),
                     column: Some(link.column),
                     message: format!("page link points to missing page '{id}'"),
-                });
+                }),
+                OutgoingTarget::ExternalGraph { path }
+                    if Path::new(&path).file_name().and_then(|name| name.to_str()) != Some(ENTRANCE_FILE_NAME) =>
+                {
+                    diagnostics.push(Diagnostic {
+                        code: "external-graph-entry".to_string(),
+                        severity: crate::diagnostic::Severity::Error,
+                        path: Some(document.relative_file_path_from_wiki_root.clone()),
+                        line: Some(link.line),
+                        column: Some(link.column),
+                        message: format!("external graph link must target entrance.md, got '{path}'"),
+                    });
+                }
+                OutgoingTarget::ExternalGraph { path } => {
+                    if let Some(root) = external_root
+                        && !root.join(&path).is_file()
+                    {
+                        diagnostics.push(Diagnostic {
+                            code: "missing-external-graph".to_string(),
+                            severity: crate::diagnostic::Severity::Error,
+                            path: Some(document.relative_file_path_from_wiki_root.clone()),
+                            line: Some(link.line),
+                            column: Some(link.column),
+                            message: format!("external graph entrance does not exist: {path}"),
+                        });
+                    }
+                }
+                _ => {}
             }
         }
     }

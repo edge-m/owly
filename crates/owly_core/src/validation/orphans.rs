@@ -1,12 +1,21 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::diagnostic::Diagnostic;
+use crate::graph::{ENTRANCE_FILE_NAME, ENTRANCE_PAGE_ID};
 use crate::link_resolver::OutgoingTarget;
 use crate::workspace::ScanResult;
 
-/// Find Markdown pages that cannot be reached from the wiki-root `index.md`.
+/// Find Markdown pages that cannot be reached from the required `entrance.md`.
 pub fn find(scan: &ScanResult) -> Vec<Diagnostic> {
     let pages: HashSet<String> = scan.documents.iter().map(|document| document.page_id()).collect();
+    if !pages.contains(ENTRANCE_PAGE_ID) {
+        return vec![Diagnostic::error(
+            "missing-entrance",
+            Some(ENTRANCE_FILE_NAME.to_string()),
+            "wiki must contain entrance.md",
+        )];
+    }
+
     let mut links = HashMap::<String, Vec<String>>::new();
     for document in &scan.documents {
         let source = document.page_id();
@@ -23,7 +32,7 @@ pub fn find(scan: &ScanResult) -> Vec<Diagnostic> {
     }
 
     let mut visited = HashSet::new();
-    let mut stack = vec!["index".to_string()];
+    let mut stack = vec![ENTRANCE_PAGE_ID.to_string()];
     while let Some(page) = stack.pop() {
         if !visited.insert(page.clone()) {
             continue;
@@ -43,7 +52,7 @@ pub fn find(scan: &ScanResult) -> Vec<Diagnostic> {
             Diagnostic::error(
                 "orphan-page",
                 Some(document.relative_file_path_from_wiki_root.clone()),
-                "page is not reachable from index.md",
+                "page is not reachable from entrance.md",
             )
         })
         .collect()

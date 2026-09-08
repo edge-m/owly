@@ -6,6 +6,7 @@ description = "File discovery and Markdown loading for Owly wikis"
 license = "MIT"
 
 [dependencies]
+chrono = { workspace = true }
 owly_types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

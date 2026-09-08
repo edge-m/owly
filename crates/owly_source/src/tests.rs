@@ -13,13 +13,39 @@ fn discovers_and_loads_markdown() {
     assert_eq!(paths, [std::path::PathBuf::from("docs/a.md")]);
     let index = load(&root, "docs/a.md").unwrap();
     assert_eq!(index.document.path, "docs/a.md");
-    assert!(!index.document.content_hash.is_empty());
     fs::remove_dir_all(root).unwrap();
 }
 
 #[test]
 fn sha256_matches_standard_vector() {
     assert_eq!(sha256(b"abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+}
+
+#[test]
+fn normalizes_datetime_offsets_to_utc() {
+    let root = std::env::temp_dir().join(format!("owly-source-datetime-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("note.md"), "---\ngenerated: 2026-08-12T19:30:00+09:00\n---\n").unwrap();
+
+    let index = load(&root, "note.md").unwrap();
+    assert_eq!(index.frontmatter[0].value, owly_types::FrontmatterValue::Datetime("2026-08-12T10:30:00Z".to_string()));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn loads_large_markdown_through_buffered_reader() {
+    let root = std::env::temp_dir().join(format!("owly-source-large-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    let mut content = String::from("---\ntype: note\n---\n");
+    content.push_str(&"body ".repeat((256 * 1024 / 5) + 1));
+    fs::write(root.join("large.md"), content).unwrap();
+
+    let index = load(&root, "large.md").unwrap();
+    assert_eq!(index.document.path, "large.md");
+    assert!(index.frontmatter.iter().any(|value| value.field_path == "type"));
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

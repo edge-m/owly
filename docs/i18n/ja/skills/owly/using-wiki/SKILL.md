@@ -10,16 +10,16 @@ Owly Wiki に関するタスクの開始時に一度使い、操作に特化し�
 ## ワークフロー
 
 1. Wiki のルートを特定し、`owly.yml` を探す。
-2. `owly schema --format json` で現在の設定を確認する。
-3. Wiki の構造や文書タイプが関係する場合は、`owly overview directories` と `owly overview types` を実行する。
-4. 依頼に合う操作 Skill を選ぶ。
-5. ファイルを変更したら `owly validate` を実行し、残っている診断を報告する。
+2. 必須の入口である `<wiki-root>/entrance.md` を読む。存在しない場合は Wiki が不正な状態だと報告する。
+3. `owly schema --format json` で現在の設定を確認する。
+4. Wiki の構造や文書タイプが関係する場合は、`owly overview directories` と `owly overview types` を実行する。
+5. 依頼に合う操作 Skill を選ぶ。
+6. ファイルを変更したら `owly validate` を実行し、残っている診断を報告する。
 
 ## 操作の選択
 
 - `owly.yml` を設計・修正するときは `wiki-config` を使う。
-- 構造、件数、状態を把握するときは `wiki-overview` を使う。
-- 構造化メタデータ、リンク、本文を検索するときは `wiki-search` を使う。
+- 構造化メタデータ、リンク、本文、基本的な構造を調べるときは `wiki-query` を使う。
 - ソースを `raw/` に保存してページを作るときは `wiki-ingest` を使う。
 - 壊れたリンク、孤立ページ、古い内容を調べるときは `wiki-maintenance` を使う。
 
