@@ -21,9 +21,9 @@ checks the structural contract.
    [references/git-repository.md](references/git-repository.md) accordingly.
 4. Write or update the page with a `sources` frontmatter record. Add the page
    to the graph through `entrance.md` or the most relevant existing page.
-5. Run `owly validate --file <page>` and then `owly validate`. If the source
-   was copied or changed, run `owly index --config <config>` when a search
-   index is expected.
+5. Run `owly validate --file <page>` and then `owly validate`. After any
+   source or page write, run `owly index --config <config>` to refresh the
+   derived search index.
 6. Report the source, pages created or updated, links added, commands run, and
    any remaining diagnostics.
 

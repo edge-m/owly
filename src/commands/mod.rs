@@ -3,6 +3,7 @@ mod context;
 pub mod graph;
 pub mod index;
 pub mod init;
+pub mod inspect;
 pub mod onboard;
 pub mod overview;
 pub mod schema;

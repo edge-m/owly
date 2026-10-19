@@ -274,6 +274,7 @@ dependencies = [
  "owly_core",
  "owly_source",
  "owly_types",
+ "rusqlite",
  "semver",
  "serde",
  "serde_json",

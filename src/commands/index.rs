@@ -31,23 +31,29 @@ pub struct Args {
 }
 
 #[derive(Debug, Serialize)]
-struct Summary {
-    database: String,
-    rebuilt: bool,
-    indexed: usize,
-    reused: usize,
-    removed: usize,
-    warnings: Vec<String>,
+pub struct Summary {
+    pub database: String,
+    pub rebuilt: bool,
+    pub indexed: usize,
+    pub reused: usize,
+    pub removed: usize,
+    pub warnings: Vec<String>,
 }
 
 pub fn run(args: &Args) -> Result<u8, String> {
-    let context = context::load(args.config.as_deref())?;
+    let summary = update(args.config.as_deref(), args.database.as_deref(), args.force)?;
+    print_summary(&summary, args.format)?;
+    Ok(0)
+}
+
+pub fn update(config_path: Option<&Path>, database_path: Option<&Path>, force: bool) -> Result<Summary, String> {
+    let context = context::load(config_path)?;
     let root = context.wiki_root();
     if !root.is_dir() {
         return Err(format!("wiki path is not a directory: {}", root.display()));
     }
 
-    let database = args.database.as_deref().map_or_else(|| root.join(DEFAULT_DATABASE), |path| root.join(path));
+    let database = database_path.map_or_else(|| root.join(DEFAULT_DATABASE), |path| root.join(path));
     if let Some(parent) = database.parent() {
         fs::create_dir_all(parent)
             .map_err(|error| format!("cannot create database directory {}: {error}", parent.display()))?;
@@ -60,7 +66,7 @@ pub fn run(args: &Args) -> Result<u8, String> {
         && root_cache
             .update_database(&database)
             .map_err(|error| format!("cannot inspect database {}: {error}", database.display()))?;
-    let rebuild = args.force || !database_existed || cached_database.is_none() || database_changed;
+    let rebuild = force || !database_existed || cached_database.is_none() || database_changed;
 
     let discovered = owly_source::discover(root).map_err(|error| error.to_string())?;
     let excluded = context.config().wiki_lint.exclude.as_slice();
@@ -151,9 +157,11 @@ pub fn run(args: &Args) -> Result<u8, String> {
         .save_atomic(&root_cache_path)
         .map_err(|error| format!("cannot write cache {}: {error}", root_cache_path.display()))?;
 
-    let summary =
-        Summary { database: database.display().to_string(), rebuilt: rebuild, indexed, reused, removed, warnings };
-    match args.format {
+    Ok(Summary { database: database.display().to_string(), rebuilt: rebuild, indexed, reused, removed, warnings })
+}
+
+fn print_summary(summary: &Summary, format: Format) -> Result<(), String> {
+    match format {
         Format::Human => {
             println!("{}", if summary.rebuilt { "rebuilt index" } else { "updated index" });
             println!("indexed: {}, reused: {}, removed: {}", summary.indexed, summary.reused, summary.removed);
@@ -163,7 +171,7 @@ pub fn run(args: &Args) -> Result<u8, String> {
         }
         Format::Json => println!("{}", serde_json::to_string_pretty(&summary).map_err(|error| error.to_string())?),
     }
-    Ok(0)
+    Ok(())
 }
 
 fn derived_index_changed(existing: Option<&IndexedDocument>, index: &DocumentIndex) -> bool {

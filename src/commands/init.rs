@@ -7,6 +7,8 @@ use owly_core::config::{
     Config, ConfigLintConfig, DirectoryConfig, MandatoryFieldRule, TypeConfig, ValueType, WikiLintConfig,
 };
 
+use super::index;
+
 const CONFIG_NAME: &str = "owly.yml";
 
 const TOP_LEVEL_COMMENTS: &[(&str, &str)] = &[
@@ -191,6 +193,7 @@ pub fn run(args: &Args) -> Result<u8, String> {
     fs::write(&entrance_path, entrance_content)
         .map_err(|error| format!("cannot write {}: {error}", entrance_path.display()))?;
     println!("wrote {}", entrance_path.display());
+    index::update(Some(&config_path), None, false)?;
 
     Ok(0)
 }

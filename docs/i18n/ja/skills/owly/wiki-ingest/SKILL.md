@@ -17,7 +17,7 @@ description: ローカルのソースファイルまたはGitリポジトリの�
    [references/source-file.md](references/source-file.md) または
    [references/git-repository.md](references/git-repository.md) を読む。
 4. ページに `sources` frontmatter レコードを付けて作成・更新する。`entrance.md`または最も関連する既存ページからリンクし、グラフに接続する。
-5. `owly validate --file <page>`、続けて `owly validate` を実行する。ソースをコピー・変更した場合、検索インデックスを使う構成なら `owly index --config <config>` も実行する。
+5. `owly validate --file <page>`、続けて `owly validate` を実行する。ソースまたはページを書き込んだ後は、派生検索インデックスを更新するため `owly index --config <config>` を必ず実行する。
 6. ソース、作成・更新したページ、追加したリンク、実行したコマンド、残っている診断を報告する。
 
 ## 境界

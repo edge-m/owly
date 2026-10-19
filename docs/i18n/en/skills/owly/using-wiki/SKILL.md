@@ -14,8 +14,9 @@ before loading an operation-specific skill.
 2. Read the required `<wiki-root>/entrance.md` as the entry point for this
    graph. If it is missing, report the invalid Wiki state.
 3. Run `owly schema --format json` to inspect the current configuration.
-4. Run `owly overview directories` and `owly overview types` when the task
-   depends on Wiki structure or document types.
+4. Run `owly inspect --format json` to obtain the current Wiki state. Use
+   `owly overview directories` or `owly overview types` for a focused view
+   when the task depends on one specific part of the schema.
 5. Select the operation skill that matches the user's request.
 6. After any file change, run `owly validate` and report remaining diagnostics.
 

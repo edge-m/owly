@@ -20,8 +20,8 @@ explicit approval, write the file, and validate it.
   user did not ask to change.
 - Inspect the repository's current Wiki state when it exists. Use
   `owly schema --config <path> --format json` and
-  `owly overview directories` or `owly overview types` to avoid inventing
-  names or breaking existing documents.
+  `owly inspect --format json` and, when needed, `owly overview directories` or
+  `owly overview types` to avoid inventing names or breaking existing documents.
 - If the CLI is unavailable, inspect `README.md` and the existing YAML schema;
   state that validation could not be run.
 

@@ -13,10 +13,12 @@ counts, relationships, and current validation state.
 1. Read `<wiki-root>/entrance.md` as the graph entry, then run
    `owly schema --format json` to obtain the wiki root, configured types,
    fields, directory roles, and configuration diagnostics.
-2. Run `owly overview directories --statistics` and
-   `owly overview types --statistics` to collect actual page counts.
-3. Run `owly graph` to inspect links, broken references, orphan pages, and
-   unreachable pages.
+2. Run `owly inspect --format json` to collect the current page counts,
+   configured directories and types, Graph state, validation state, and
+   SQLite index state.
+3. Use `owly overview directories --statistics` or
+   `owly overview types --statistics` for a focused view, and `owly graph`
+   when the individual links and edges are needed.
 4. Run `owly validate` and report the current validation state.
 
 Do not infer missing configuration from directory names or page content.

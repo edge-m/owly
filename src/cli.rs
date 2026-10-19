@@ -1,6 +1,6 @@
 use clap::{CommandFactory, Parser, Subcommand};
 
-use crate::commands::{config, graph, index, init, onboard, overview, schema, search, skill, validate};
+use crate::commands::{config, graph, index, init, inspect, onboard, overview, schema, search, skill, validate};
 
 #[derive(Debug, Parser)]
 #[command(name = "owly", about = "Owly wiki validator")]
@@ -19,6 +19,8 @@ enum Command {
     Init(init::Args),
     #[command(about = "Build or update the SQLite search index")]
     Index(index::Args),
+    #[command(about = "Inspect the complete wiki state")]
+    Inspect(inspect::Args),
     #[command(subcommand, about = "Inspect configuration")]
     Config(ConfigCommand),
     #[command(about = "Export the wiki knowledge graph")]
@@ -63,6 +65,7 @@ pub fn run(args: Vec<String>) -> Result<u8, String> {
         Some(Command::Overview(OverviewCommand::Types(args))) => overview::types(&args),
         Some(Command::Init(args)) => init::run(&args),
         Some(Command::Index(args)) => index::run(&args),
+        Some(Command::Inspect(args)) => inspect::run(&args),
         Some(Command::Config(ConfigCommand::Validate(args))) => config::validate(&args),
         Some(Command::Graph(args)) => graph::run(&args),
         Some(Command::Schema(args)) => schema::run(&args),

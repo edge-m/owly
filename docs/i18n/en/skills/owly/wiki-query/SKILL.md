@@ -5,7 +5,8 @@ description: Use when answering questions from an Owly Wiki or inspecting its st
 
 # Query an Owly Wiki
 
-Use this skill to retrieve evidence from one graph without changing files.
+Use this skill to retrieve evidence from one graph without changing Wiki
+source files. `owly search` may refresh the derived SQLite index automatically.
 
 ## Workflow
 
@@ -16,9 +17,9 @@ Use this skill to retrieve evidence from one graph without changing files.
 5. For body text or an exact phrase, use `rg` within the Wiki root after narrowing the candidate paths.
 6. Cite the source path and distinguish what the Wiki states from an inference.
 
-Do not edit, index, normalize, or silently repair the Wiki while answering a
-query. If the index is unavailable, report that limitation and use the source
-files or graph output instead. Route requests to save knowledge to
+Do not edit, normalize, or silently repair Wiki source files while answering a
+query. Search may create or refresh `.owly/index.sqlite` and its local metadata
+cache; these are derived and reproducible. Route requests to save knowledge to
 `wiki-ingest`, and requests to repair or reorganize existing knowledge to
 `wiki-maintenance`.
 

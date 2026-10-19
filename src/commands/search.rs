@@ -5,8 +5,8 @@ use owly_cache::CacheDb;
 use owly_types::FrontmatterValue;
 use serde::Serialize;
 
-use super::context;
 use super::overview::Format;
+use super::{context, index};
 
 #[derive(Debug, ClapArgs)]
 pub struct Args {
@@ -31,13 +31,8 @@ struct SearchResult {
 pub fn run(args: &Args) -> Result<u8, String> {
     let config_context = context::load(args.config.as_deref())?;
     let query = Query::parse(&args.query)?;
+    index::update(args.config.as_deref(), None, false)?;
     let database = config_context.wiki_root().join(".owly/index.sqlite");
-    if !database.is_file() {
-        return Err(format!(
-            "SQLite index not found: run owly index --config {} first",
-            args.config.as_deref().unwrap_or_else(|| std::path::Path::new("owly.yml")).display()
-        ));
-    }
     let db =
         CacheDb::open(&database).map_err(|error| format!("cannot open database {}: {error}", database.display()))?;
     let paths =

@@ -12,7 +12,7 @@ Owly Wiki に関するタスクの開始時に一度使い、操作に特化し�
 1. Wiki のルートを特定し、`owly.yml` を探す。
 2. 必須の入口である `<wiki-root>/entrance.md` を読む。存在しない場合は Wiki が不正な状態だと報告する。
 3. `owly schema --format json` で現在の設定を確認する。
-4. Wiki の構造や文書タイプが関係する場合は、`owly overview directories` と `owly overview types` を実行する。
+4. `owly inspect --format json` で現在の Wiki 状態を取得する。スキーマの一部だけを確認するときは、`owly overview directories` または `owly overview types` を使う。
 5. 依頼に合う操作 Skill を選ぶ。
 6. ファイルを変更したら `owly validate` を実行し、残っている診断を報告する。
 

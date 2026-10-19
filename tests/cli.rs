@@ -162,6 +162,66 @@ fn overview_and_search_return_structured_results() {
 }
 
 #[test]
+fn inspect_returns_consolidated_wiki_state() {
+    let root = fixture("inspect");
+    write_config(&root);
+    fs::write(root.join("entrance.md"), "---\ntype: note\ntitle: Index\n---\n[Welcome](note.md)\n")
+        .expect("entrance should be written");
+    fs::write(root.join("note.md"), "---\ntype: note\ntitle: Welcome\nstatus: active\n---\n")
+        .expect("note should be written");
+
+    let config = root.join("owly.yml");
+    let index = Command::new(env!("CARGO_BIN_EXE_owly"))
+        .args(["index", "--config", config.to_str().unwrap()])
+        .output()
+        .expect("index should run");
+    assert!(index.status.success());
+
+    let inspect = Command::new(env!("CARGO_BIN_EXE_owly"))
+        .args(["inspect", "--config", config.to_str().unwrap(), "--format", "json"])
+        .output()
+        .expect("inspect should run");
+    assert!(inspect.status.success());
+    let state: serde_json::Value = serde_json::from_slice(&inspect.stdout).expect("valid JSON");
+    assert_eq!(state["page_count"], 2);
+    assert_eq!(state["types"]["note"], 2);
+    assert_eq!(state["graph"]["entrance"], "entrance");
+    assert_eq!(state["graph"]["broken_references"], 0);
+    assert_eq!(state["graph"]["orphan_pages"].as_array().unwrap().len(), 0);
+    assert_eq!(state["index"]["exists"], true);
+    assert_eq!(state["index"]["document_count"], 2);
+    assert_eq!(state["validation"]["errors"], 0);
+    fs::remove_dir_all(root).expect("fixture should be removed");
+}
+
+#[test]
+fn search_builds_and_refreshes_the_index_automatically() {
+    let root = fixture("search-auto-index");
+    write_config(&root);
+    fs::write(root.join("entrance.md"), "---\ntype: note\ntitle: Index\n---\n").expect("entrance should be written");
+    fs::write(root.join("note.md"), "---\ntype: note\ntitle: Welcome\nstatus: draft\n---\n")
+        .expect("note should be written");
+
+    let config = root.join("owly.yml");
+    let first = Command::new(env!("CARGO_BIN_EXE_owly"))
+        .args(["search", "--config", config.to_str().unwrap(), "--query", "status:draft"])
+        .output()
+        .expect("search should run");
+    assert!(first.status.success());
+    assert!(root.join(".owly/index.sqlite").is_file());
+
+    fs::write(root.join("note.md"), "---\ntype: note\ntitle: Welcome\nstatus: active\n---\n")
+        .expect("note should be updated");
+    let second = Command::new(env!("CARGO_BIN_EXE_owly"))
+        .args(["search", "--config", config.to_str().unwrap(), "--query", "status:active"])
+        .output()
+        .expect("search should refresh the index");
+    assert!(second.status.success());
+    assert!(String::from_utf8_lossy(&second.stdout).contains("note"));
+    fs::remove_dir_all(root).expect("fixture should be removed");
+}
+
+#[test]
 fn config_validate_validates_without_scanning_the_wiki() {
     let root = fixture("config-lint");
     write_config(&root);
@@ -408,6 +468,7 @@ fn init_command_writes_default_config() {
     assert!(root.join("entrance.md").is_file());
     assert!(config.contains("# Wiki root path used by Owly commands.\nwiki_root:"));
     assert!(config.contains("\n\n# Directory structure and descriptions.\ndirectories:"));
+    assert!(root.join(".owly/index.sqlite").is_file());
     assert!(config.contains("\n\n# Fields required on every document.\nmandatory_fields:"));
     let mandatory_fields = config.split("mandatory_fields:").nth(1).expect("mandatory fields should be written");
     let field_order = ["type:", "title:", "description:", "tags:", "generated:", "stale_after:"];

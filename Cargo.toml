@@ -49,3 +49,4 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 serde = { workspace = true }
 semver = { workspace = true }
+rusqlite = { workspace = true }

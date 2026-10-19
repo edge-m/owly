@@ -11,7 +11,7 @@ description: Owly Wiki の設定を対話的に設計し、明示的な確認を
 
 - 現在のディレクトリを確認し、`owly.yml` を探す。
 - 設定が存在する場合は更新として扱い、明示的に別ファイルを求められない限り、指定されていない設定を保持する。
-- Wiki が存在する場合は、`owly schema --config <path> --format json` と `owly overview directories` / `owly overview types` で現在の状態を確認し、名前を勝手に作ったり既存文書を壊したりしない。
+- Wiki が存在する場合は、`owly schema --config <path> --format json` と `owly inspect --config <path> --format json` を使い、必要に応じて `owly overview directories` / `owly overview types` で現在の状態を確認する。名前を勝手に作ったり既存文書を壊したりしない。
 - CLI が使えない場合は `README.md` と既存の YAML スキーマを確認し、検証を実行できなかったことを伝える。
 
 ## 2. 焦点を絞って対話する
