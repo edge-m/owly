@@ -65,7 +65,7 @@ fn diagnostic_help(diagnostic: &Diagnostic) -> Option<&'static str> {
         "config-values-require-string" => Some("use 'values' only with type: string"),
         "config-items-require-array" => Some("use 'items' only with type: array"),
         "config-fields-require-object" => Some("use 'fields' only with type: object"),
-        "config-owly-version-missing" => Some("add owly_version: 0.1.0 to the configuration"),
+        "config-owly-version-missing" => Some("add owly_version: 0.1.1 to the configuration"),
         "config-owly-version-incompatible" => Some("set owly_version to a version supported by this binary"),
         "source-definition-ignored" => Some("set source_tracking.enabled to false to use a custom sources definition"),
         _ => None,

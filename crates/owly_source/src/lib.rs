@@ -1,4 +1,7 @@
 //! File discovery and Markdown loading for Owly wikis.
+//!
+//! [`discover`] finds Markdown files and [`load`] turns one file into the
+//! shared indexed data consumed by [`owly_cache`](https://docs.rs/owly_cache).
 
 use std::collections::BTreeMap;
 use std::fmt;

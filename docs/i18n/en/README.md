@@ -1,6 +1,6 @@
 # Owly
 
-![Owly logo](../../img/wide.webp)
+![Owly logo](https://raw.githubusercontent.com/edge-m/owly/develop/docs/img/wide.webp)
 
 Owly is a configuration-driven linter for structured Markdown wikis.
 
@@ -14,13 +14,28 @@ meaning or writing quality.
 
 The repository contains:
 
-- `owly`: the command-line application
-- `owly_core`: the reusable validation and wiki-model library
+- `owly`: the command-line application and the recommended entry point
+- `owly_core`: validation, diagnostics, configuration, and wiki-model logic
+- `owly_source`: Markdown discovery, loading, and source metadata extraction
+- `owly_cache`: SQLite-backed derived index and query support
+- `owly_types`: shared domain types exchanged by the library crates
 - Agent Skills for configuring, exploring, searching, and maintaining wikis
 - End-to-end CLI tests and release automation
 
 Owly is written in Rust and exposes stable exit codes for scripts and CI.
-The project is currently version `0.1.0` and licensed under MIT.
+The project is currently version `0.1.1` and licensed under MIT.
+
+## Published crates
+
+The crates are maintained in one Cargo workspace and published individually.
+The library crates are implementation-oriented building blocks; most users
+should install or depend on `owly` rather than using them directly.
+
+- [`owly`](https://crates.io/crates/owly): CLI application
+- [`owly_core`](https://crates.io/crates/owly_core): validation and wiki model
+- [`owly_source`](https://crates.io/crates/owly_source): source discovery and parsing
+- [`owly_cache`](https://crates.io/crates/owly_cache): SQLite derived index
+- [`owly_types`](https://crates.io/crates/owly_types): shared data types
 
 ## Agent Skills
 

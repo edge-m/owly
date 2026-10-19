@@ -1,9 +1,15 @@
 [package]
 name = "owly_core"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
+rust-version = "1.85"
 description = "Core library for validating structured Markdown wikis"
 license = "MIT"
+repository = "https://github.com/edge-m/owly"
+readme = "README.md"
+documentation = "https://docs.rs/owly_core"
+keywords = ["owly", "wiki", "markdown", "validation"]
+categories = ["development-tools"]
 
 [dependencies]
 chrono = { workspace = true }

@@ -10,8 +10,10 @@ permissions:
 
 jobs:
   publish:
-    name: Publish crate
+    name: Publish crates
     runs-on: ubuntu-latest
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -19,7 +21,26 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Publish to crates.io
-        run: cargo publish --token "$CARGO_REGISTRY_TOKEN"
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish owly_types to crates.io
+        run: cargo publish --package owly_types --locked --token "$CARGO_REGISTRY_TOKEN"
+
+      - name: Wait for owly_types to reach the crates.io index
+        run: sleep 30
+
+      - name: Publish owly_source to crates.io
+        run: cargo publish --package owly_source --locked --token "$CARGO_REGISTRY_TOKEN"
+
+      - name: Publish owly_cache to crates.io
+        run: cargo publish --package owly_cache --locked --token "$CARGO_REGISTRY_TOKEN"
+
+      - name: Wait for library crates to reach the crates.io index
+        run: sleep 30
+
+      - name: Publish owly_core to crates.io
+        run: cargo publish --package owly_core --locked --token "$CARGO_REGISTRY_TOKEN"
+
+      - name: Wait for owly libraries to reach the crates.io index
+        run: sleep 30
+
+      - name: Publish owly to crates.io
+        run: cargo publish --package owly --locked --token "$CARGO_REGISTRY_TOKEN"

@@ -1,9 +1,15 @@
 [package]
 name = "owly_source"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
+rust-version = "1.85"
 description = "File discovery and Markdown loading for Owly wikis"
 license = "MIT"
+repository = "https://github.com/edge-m/owly"
+readme = "README.md"
+documentation = "https://docs.rs/owly_source"
+keywords = ["owly", "wiki", "markdown", "frontmatter"]
+categories = ["parser-implementations"]
 
 [dependencies]
 chrono = { workspace = true }

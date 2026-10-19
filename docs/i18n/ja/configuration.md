@@ -6,7 +6,7 @@ Owly の設定ファイル名は通常 `owly.yml` です。相対パスは設定
 
 ```yaml
 name: my-wiki
-owly_version: 0.1.0
+owly_version: 0.1.1
 wiki_root: .
 ```
 
@@ -134,7 +134,7 @@ config_lint:
 
 ```yaml
 name: research
-owly_version: 0.1.0
+owly_version: 0.1.1
 wiki_root: .
 
 directories:

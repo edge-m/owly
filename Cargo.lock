@@ -265,7 +265,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "owly"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "clap",
@@ -283,7 +283,7 @@ dependencies = [
 
 [[package]]
 name = "owly_cache"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "owly_types",
  "rusqlite",
@@ -291,7 +291,7 @@ dependencies = [
 
 [[package]]
 name = "owly_core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "indexmap",
@@ -302,7 +302,7 @@ dependencies = [
 
 [[package]]
 name = "owly_source"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "owly_types",
@@ -314,7 +314,7 @@ dependencies = [
 
 [[package]]
 name = "owly_types"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "pkg-config"

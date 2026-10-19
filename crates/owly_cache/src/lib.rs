@@ -1,4 +1,7 @@
 //! SQLite-backed derived index for Owly wikis.
+//!
+//! [`CacheDb`] owns the rebuildable database used for indexed document
+//! metadata, frontmatter queries, links, and tracked source references.
 
 mod query;
 mod schema;

@@ -455,7 +455,7 @@ fn init_command_writes_default_config() {
     assert!(output.status.success());
     let config = fs::read_to_string(root.join("owly.yml")).expect("config should be written");
     assert!(config.contains("mandatory_fields:"));
-    assert!(config.contains("owly_version: 0.1.0"));
+    assert!(config.contains("owly_version: 0.1.1"));
     assert!(config.contains("wiki_root: ."));
     assert!(config.contains("directories:"));
     assert!(config.contains("description:"));

@@ -5,10 +5,10 @@ resolver = "2"
 [workspace.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
-owly_core = { path = "crates/owly_core" }
-owly_cache = { path = "crates/owly_cache" }
-owly_types = { path = "crates/owly_types" }
-owly_source = { path = "crates/owly_source" }
+owly_core = { path = "crates/owly_core", version = "0.1.1" }
+owly_cache = { path = "crates/owly_cache", version = "0.1.1" }
+owly_types = { path = "crates/owly_types", version = "0.1.1" }
+owly_source = { path = "crates/owly_source", version = "0.1.1" }
 indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -19,11 +19,15 @@ walkdir = "2"
 
 [package]
 name = "owly"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
+rust-version = "1.85"
 description = "A linter for open-knowledge format LLM wikis."
 license = "MIT"
 repository = "https://github.com/edge-m/owly"
+readme = "README.md"
+keywords = ["wiki", "markdown", "linter", "llm", "knowledge"]
+categories = ["command-line-utilities", "development-tools"]
 
 [profile.dev]
 codegen-units = 128

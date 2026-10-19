@@ -1,6 +1,6 @@
 # Owly
 
-![Owly logo](../../img/wide.webp)
+![Owly logo](https://raw.githubusercontent.com/edge-m/owly/develop/docs/img/wide.webp)
 
 Owlyは、構造化されたMarkdown Wiki向けの設定駆動型リンターです。
 
@@ -15,11 +15,26 @@ YAML frontmatter、文書種別、必須フィールド、フィールド型、�
 
 - `owly`: コマンドラインアプリケーション
 - `owly_core`: 検証とWikiモデルを提供する再利用可能なライブラリ
+- `owly_source`: Markdownの探索・読み込み・ソースメタデータ抽出
+- `owly_cache`: SQLiteによる派生インデックスと検索
+- `owly_types`: ライブラリ間で共有するドメイン型
 - Wikiの設定・調査・検索・保守に使うAgent Skill
 - CLIの統合テストとリリース自動化
 
 OwlyはRustで実装され、スクリプトやCI向けに安定した終了コードを提供します。
-現在のバージョンは`0.1.0`で、MITライセンスです。
+現在のバージョンは`0.1.1`で、MITライセンスです。
+
+## 公開クレート
+
+各クレートは1つのCargoワークスペースで管理し、crates.ioには個別に公開します。
+ライブラリクレートは実装を分担する部品であり、通常の利用者は直接使わず、
+`owly`をインストールまたは利用してください。
+
+- [`owly`](https://crates.io/crates/owly): CLIアプリケーション
+- [`owly_core`](https://crates.io/crates/owly_core): 検証とWikiモデル
+- [`owly_source`](https://crates.io/crates/owly_source): ソース探索と解析
+- [`owly_cache`](https://crates.io/crates/owly_cache): SQLite派生インデックス
+- [`owly_types`](https://crates.io/crates/owly_types): 共有データ型
 
 ## 使い始める
 
