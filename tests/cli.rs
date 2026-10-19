@@ -422,6 +422,8 @@ fn skill_command_writes_skill_file() {
     assert!(root.join("owly/wiki-config/SKILL.md").is_file());
     assert!(root.join("owly/wiki-maintenance/SKILL.md").is_file());
     assert!(root.join("owly/wiki-query/SKILL.md").is_file());
+    assert!(root.join("owly/wiki-overview/SKILL.md").is_file());
+    assert!(root.join("owly/wiki-search/SKILL.md").is_file());
     assert!(!root.join("owly/SKILL.md").exists());
     fs::remove_dir_all(root).expect("fixture should be removed");
 }

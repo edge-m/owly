@@ -10,7 +10,7 @@ description: Owly Wikiの既存構造、リンク、重複、グラフ境界を�
 ## ワークフロー
 
 1. `<wiki-root>/entrance.md`とグラフの`owly.yml`を読む。
-2. `owly validate --details --format json`で診断を集める。期間指定時は`--stale-before YYYY-MM-DD`を加える。
+2. `owly validate --details --format json`で構造診断を集める。現在のOwly CLIには鮮度の期間指定オプションがないため、鮮度は別の保守候補として扱う。
 3. `owly graph`で壊れた参照、孤立ページ、到達不能ページの根拠を確認する。ルート外へのリンクは存在する外部グラフの`entrance.md`だけを指すことも確認し、外部グラフの中身は調べない。
 4. `owly validate`でフロントマター、型、値、重複識別子を確認する。
 5. 単一グラフ内のリファクタか、グラフ境界の移行かを分類し、対応するreferenceを読む。

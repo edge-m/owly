@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use clap::Args as ClapArgs;
 
 const SKILL_NAME: &str = "owly";
+// The Japanese files under docs/i18n/ja are reader-facing translations. The
+// generated Agent Skill remains the canonical English distribution.
 const SKILLS: &[(&str, &str)] = &[
     ("using-wiki/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/using-wiki/SKILL.md")),
     ("wiki-config/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-config/SKILL.md")),
@@ -25,7 +27,9 @@ const SKILLS: &[(&str, &str)] = &[
         "wiki-maintenance/references/graph-migration.md",
         include_str!("../../docs/i18n/en/skills/owly/wiki-maintenance/references/graph-migration.md"),
     ),
+    ("wiki-overview/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-overview/SKILL.md")),
     ("wiki-query/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-query/SKILL.md")),
+    ("wiki-search/SKILL.md", include_str!("../../docs/i18n/en/skills/owly/wiki-search/SKILL.md")),
 ];
 
 #[derive(Debug, ClapArgs)]

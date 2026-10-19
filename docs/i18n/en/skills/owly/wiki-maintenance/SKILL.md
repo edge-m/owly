@@ -10,8 +10,9 @@ Use this workflow to separate read-only diagnosis from approved maintenance.
 ## Workflow
 
 1. Read `<wiki-root>/entrance.md` and the graph's `owly.yml` before making a plan.
-2. Run `owly validate --details --format json` to collect diagnostics. Add
-   `--stale-before YYYY-MM-DD` when an age threshold is requested.
+2. Run `owly validate --details --format json` to collect structural
+   diagnostics. Age-based maintenance thresholds are not part of the current
+   Owly CLI; treat freshness as a separate maintenance candidate.
 3. Run `owly graph` to verify the evidence for broken references, orphan
    pages, and unreachable pages. Check that `entrance.md` exists and that
    links escaping the Wiki root point only to an existing external

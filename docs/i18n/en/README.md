@@ -22,4 +22,18 @@ The repository contains:
 Owly is written in Rust and exposes stable exit codes for scripts and CI.
 The project is currently version `0.1.0` and licensed under MIT.
 
+## Agent Skills
+
+The English Skills are the files distributed by `owly skill <directory>`.
+
+- [using-wiki](skills/owly/using-wiki/SKILL.md): resolve the Wiki and choose an operation
+- [wiki-config](skills/owly/wiki-config/SKILL.md): design and validate `owly.yml`
+- [wiki-ingest](skills/owly/wiki-ingest/SKILL.md): ingest local source files and Git repositories
+- [wiki-overview](skills/owly/wiki-overview/SKILL.md): inspect Wiki structure and current state
+- [wiki-query](skills/owly/wiki-query/SKILL.md): answer questions using Wiki evidence
+- [wiki-search](skills/owly/wiki-search/SKILL.md): search structured metadata and relationships
+- [wiki-maintenance](skills/owly/wiki-maintenance/SKILL.md): audit and maintain existing Wiki structure
+
+The [reference files](skills/owly/) include the supporting ingest and maintenance procedures. Japanese translations are available in the corresponding `docs/i18n/ja/skills/owly/` paths for readers; they are not written by the Skill distribution command.
+
 For development commands and repository conventions, see [AGENTS.md](../../../AGENTS.md).
